@@ -1,97 +1,106 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import * as Tone from "tone";
-import { BEAT_LEVELS, BEAT_LEVEL_VOL, clamp, uid } from "../lib/constants.js";
+import { BEAT_LEVELS, BEAT_LEVEL_VOL, clamp } from "../lib/constants.js";
 
-/* ─── Default beat grid for a given numerator ─── */
+/* ─── Default beat grid ─── */
 export function makeGrid(timeNum, ppb = 1) {
   return Array.from({ length: timeNum * ppb }, (_, i) => ({
     level: i === 0 ? "accent" : i % ppb === 0 ? "beat" : "ghost",
-    sound: null, // null = inherit global sound
+    sound: null,
   }));
 }
 
-/* ─── Build all Tone.js sound nodes ─── */
-function buildSounds() {
-  const dest = Tone.getDestination();
-  return {
-    click:   new Tone.MembraneSynth({ pitchDecay:.008, octaves:2,   envelope:{attack:.001,decay:.14,sustain:0,release:.04}}).connect(dest),
-    wood:    new Tone.MembraneSynth({ pitchDecay:.012, octaves:1.2, envelope:{attack:.001,decay:.07,sustain:0,release:.02}}).connect(dest),
-    hat:     new Tone.NoiseSynth({   noise:{type:"white"},          envelope:{attack:.001,decay:.038,sustain:0,release:.01}}).connect(new Tone.Filter(7000,"highpass").connect(dest)),
-    rim:     new Tone.MembraneSynth({ pitchDecay:.003, octaves:0.8, envelope:{attack:.001,decay:.045,sustain:0,release:.01}}).connect(dest),
-    kick:    new Tone.MembraneSynth({ pitchDecay:.05,  octaves:8,   envelope:{attack:.001,decay:.28, sustain:0,release:.08}}).connect(dest),
-    beep:    new Tone.Synth({         oscillator:{type:"sine"},     envelope:{attack:.001,decay:.09, sustain:0,release:.04}}).connect(dest),
-    cowbell: new Tone.MetalSynth({    frequency:540, harmonicity:5.1, modulationIndex:32, resonance:4000, octaves:1.5, envelope:{attack:.001,decay:.38,release:.08}}).connect(dest),
-  };
-}
+/* ════════════════════════════════════════════
+   WEB AUDIO SOUND ENGINE
+   (no Tone.js — works on all browsers/iOS)
+════════════════════════════════════════════ */
+const SOUND_DEF = {
+  click:   { type:"square", freq:1000,  decay:0.035, gain:0.80 },
+  wood:    { type:"square", freq:700,   decay:0.060, gain:0.75 },
+  rim:     { type:"square", freq:1500,  decay:0.025, gain:0.70 },
+  kick:    { type:"sine",   freq:60,    decay:0.180, gain:1.00, sweep:true },
+  beep:    { type:"sine",   freq:880,   decay:0.075, gain:0.70 },
+  cowbell: { type:"square", freq:540,   decay:0.250, gain:0.60 },
+  hat:     { noise:true,               decay:0.040, gain:0.55 },
+};
 
-/* ─── pitch/freq per sound ─── */
-const SOUND_NOTE = { click:"C2", wood:"E3", hat:"noise", rim:"G3", kick:"C1", beep:"A4", cowbell:"metal" };
-
-function triggerSound(sounds, soundId, vol, time) {
-  if (vol <= 0) return;
-  const s = sounds[soundId] || sounds.click;
-  const isNoise = soundId === "hat";
-  const isMetal = soundId === "cowbell";
+function playSound(ac, noiseBuf, soundId, vol, time) {
+  if (!ac || vol <= 0) return;
+  const def = SOUND_DEF[soundId] || SOUND_DEF.click;
+  const peak = def.gain * vol;
   try {
-    if (isNoise) s.triggerAttackRelease("16n", time, vol);
-    else if (isMetal) s.triggerAttackRelease("16n", time, vol);
-    else s.triggerAttackRelease(SOUND_NOTE[soundId]||"C2", "32n", time, vol);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(peak, time);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + def.decay);
+    g.connect(ac.destination);
+
+    if (def.noise) {
+      const src = ac.createBufferSource();
+      src.buffer = noiseBuf;
+      const hpf = ac.createBiquadFilter();
+      hpf.type = "highpass";
+      hpf.frequency.value = 8000;
+      src.connect(hpf);
+      hpf.connect(g);
+      src.start(time);
+      src.stop(time + def.decay + 0.01);
+    } else {
+      const osc = ac.createOscillator();
+      osc.type = def.type;
+      if (def.sweep) {
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(40, time + def.decay);
+      } else {
+        osc.frequency.value = def.freq;
+      }
+      osc.connect(g);
+      osc.start(time);
+      osc.stop(time + def.decay + 0.01);
+    }
   } catch {}
 }
 
-/* ─── Main hook ─── */
+/* ════════════════════════════════════════════
+   MAIN HOOK
+════════════════════════════════════════════ */
 export function useMetronome() {
-  /* ── Audio nodes ── */
-  const soundsRef     = useRef(null);
-  const loopRef       = useRef(null);
-  const pulseRef      = useRef(0);  // absolute pulse index
-  const barRef        = useRef(0);  // absolute bar index
-  const gapCycleRef   = useRef(0);  // bar index within gap cycle
-  const bpmRampRef    = useRef(0);  // current ramp BPM (float)
+  /* ── Audio engine ── */
+  const acRef        = useRef(null);
+  const noiseBufRef  = useRef(null);
+  const timerRef     = useRef(null);
+  const isRunningRef = useRef(false);
 
-  /* ── Playback state ── */
+  /* ── Timing refs (mutated directly, never trigger re-render) ── */
+  const nextTimeRef  = useRef(0);
+  const pulseRef     = useRef(0);   // absolute pulse count
+  const barRef       = useRef(0);
+  const gapCycleRef  = useRef(0);
+  const bpmRampRef   = useRef(100);
+
+  /* ── React state ── */
   const [isPlaying, setIsPlaying] = useState(false);
-  const [beat,      setBeat]      = useState(0);  // pulse within measure (0-based)
+  const [beat,      setBeat]      = useState(0);
   const [currentBar,setCurrentBar]= useState(0);
   const [isMuted,   setIsMuted]   = useState(false);
 
-  /* ── Config (all in one object for easy preset save/load) ── */
+  /* ── Config ── */
   const [cfg, setCfg] = useState({
-    bpm:        100,
-    timeNum:    4,   // beats per bar
-    timeDen:    4,   // note value (2/4/8/16)
-    subId:      "quarter", // ppb from SUBDIVISIONS
-    ppb:        1,         // pulses per beat (derived from subId)
-    swing:      50,        // 50–75 (%)
-    sound:      "click",
-    accentSound:"click",
-    ghostSound: "click",
-    polyEnabled:false,
-    polyNum:    3,
-    polySound:  "wood",
-    polyVol:    0.7,
-    gapEnabled: false,
-    gapPlay:    4,
-    gapSilence: 4,
-    gapMode:    "full",   // "full"|"beat1"|"offbeat"
-    randomMute: 0,         // 0–100
-    trainerEnabled:false,
-    trainerTarget:140,
-    trainerType:"ramp",    // "ramp"|"stairs"
-    trainerStairBars:8,
-    trainerStairStep:2,
-    voiceCount: false,
-    countIn:    false,
-    grid:       makeGrid(4, 1),
+    bpm:100, timeNum:4, timeDen:4, subId:"quarter", ppb:1, swing:50,
+    sound:"click", accentSound:"click", ghostSound:"click",
+    polyEnabled:false, polyNum:3, polySound:"wood", polyVol:0.7,
+    gapEnabled:false, gapPlay:4, gapSilence:4, gapMode:"full",
+    randomMute:0,
+    trainerEnabled:false, trainerTarget:140, trainerType:"ramp",
+    trainerStairBars:8, trainerStairStep:2,
+    voiceCount:false, countIn:false,
+    grid: makeGrid(4, 1),
   });
 
   const cfgRef = useRef(cfg);
   useEffect(() => { cfgRef.current = cfg; }, [cfg]);
 
-  /* ── Derived ── */
   const pulsesPerBar = cfg.timeNum * cfg.ppb;
 
-  /* ── Speech synthesis for voice count ── */
+  /* ── Speech synthesis ── */
   const sayBeat = useCallback((n) => {
     try {
       const u = new SpeechSynthesisUtterance(String(n));
@@ -100,182 +109,194 @@ export function useMetronome() {
     } catch {}
   }, []);
 
-  /* ── Cleanup audio nodes on unmount ── */
-  useEffect(() => {
-    return () => {
-      loopRef.current?.dispose();
-      try { Tone.getTransport().stop(); Tone.getTransport().cancel(); } catch {}
-      Object.values(soundsRef.current||{}).forEach(s => { try { s.dispose(); } catch {} });
-      soundsRef.current = null;
-    };
-  }, []);
+  /* ════════════════════════════════════
+     LOOKAHEAD SCHEDULER
+     (Chris Wilson "Tale of Two Clocks")
+  ════════════════════════════════════ */
+  const scheduleRef = useRef(null);
+  /* Reassigned on every render so it always reads fresh cfg via cfgRef */
+  scheduleRef.current = function scheduler() {
+    const ac = acRef.current;
+    if (!ac || !isRunningRef.current) return;
 
-  /* ── Core loop builder ── */
-  const rebuildLoop = useCallback(() => {
-    if (loopRef.current) { loopRef.current.stop(); loopRef.current.dispose(); }
-    pulseRef.current = 0; barRef.current = 0; gapCycleRef.current = 0;
+    const cc = cfgRef.current;
+    const totalPulses = cc.timeNum * cc.ppb;
 
-    const c = cfgRef.current;
-    bpmRampRef.current = c.bpm;
-
-    // Compute Tone interval string for one pulse
-    // ppb=1→"4n", ppb=2→"8n", ppb=3→"8t", ppb=4→"16n", ppb=5→use "4n" subdivided manually, ppb=6→"8t" ×2
-    const ppbIntervals = { 1:"4n", 2:"8n", 3:"8t", 4:"16n", 5:"4n", 6:"8t" };
-    const interval = ppbIntervals[c.ppb] || "8n";
-
-    loopRef.current = new Tone.Loop((time) => {
-      const cc = cfgRef.current;
-      const totalPulses = cc.timeNum * cc.ppb;
+    /* Schedule all notes that fall within the next 120 ms */
+    while (nextTimeRef.current < ac.currentTime + 0.12) {
       const pulse = pulseRef.current % totalPulses;
       const bar   = barRef.current;
+      const time  = nextTimeRef.current;
 
-      // ── Speed trainer ──
+      /* ── Speed trainer ── */
       if (cc.trainerEnabled) {
         if (cc.trainerType === "ramp") {
-          const stepPerPulse = (cc.trainerTarget - cc.bpm) / (totalPulses * 32);
-          bpmRampRef.current = clamp(bpmRampRef.current + stepPerPulse, Math.min(cc.bpm, cc.trainerTarget), Math.max(cc.bpm, cc.trainerTarget));
-          Tone.getTransport().bpm.value = bpmRampRef.current;
+          const step = (cc.trainerTarget - cc.bpm) / (totalPulses * 32);
+          bpmRampRef.current = clamp(
+            bpmRampRef.current + step,
+            Math.min(cc.bpm, cc.trainerTarget),
+            Math.max(cc.bpm, cc.trainerTarget),
+          );
         } else if (cc.trainerType === "stairs" && pulse === 0 && bar > 0 && bar % cc.trainerStairBars === 0) {
           bpmRampRef.current = clamp(bpmRampRef.current + cc.trainerStairStep, 20, 400);
-          Tone.getTransport().bpm.value = bpmRampRef.current;
         }
       }
 
-      // ── Gap click ──
-      const gapTotal = cc.gapPlay + cc.gapSilence;
-      const inGap    = cc.gapEnabled && (gapCycleRef.current >= cc.gapPlay);
-      let silent = inGap;
-
-      if (inGap && cc.gapMode === "beat1") {
-        // play only pulse 0 in gap
-        silent = pulse !== 0;
-      } else if (inGap && cc.gapMode === "offbeat") {
-        // shift: play only the off-pulses (halfway through each beat)
-        const halfPpb = Math.floor(cc.ppb / 2);
-        silent = halfPpb > 0 ? (pulse % cc.ppb !== halfPpb) : true;
+      /* ── Gap click ── */
+      const inGap = cc.gapEnabled && gapCycleRef.current >= cc.gapPlay;
+      let silent  = inGap;
+      if (inGap && cc.gapMode === "beat1")    silent = pulse !== 0;
+      if (inGap && cc.gapMode === "offbeat") {
+        const half = Math.floor(cc.ppb / 2);
+        silent = half > 0 ? (pulse % cc.ppb !== half) : true;
       }
 
-      // ── Random mute ──
-      if (!silent && cc.randomMute > 0 && Math.random() * 100 < cc.randomMute) {
-        silent = true;
-      }
+      /* ── Random mute ── */
+      if (!silent && cc.randomMute > 0 && Math.random() * 100 < cc.randomMute) silent = true;
 
-      // ── Play main click ──
+      /* ── Main click ── */
       if (!silent) {
         const cell  = cc.grid[pulse] || { level:"beat", sound:null };
         const level = cell.level || "beat";
         const vol   = BEAT_LEVEL_VOL[level] || 0;
         if (vol > 0) {
           const snd = cell.sound || (level === "accent" ? cc.accentSound : level === "ghost" ? cc.ghostSound : cc.sound);
-          triggerSound(soundsRef.current, snd, vol, time);
+          playSound(ac, noiseBufRef.current, snd, vol, time);
         }
       }
 
-      // ── Polyrhythm layer ──
+      /* ── Polyrhythm layer ── */
       if (cc.polyEnabled && !silent) {
-        // LCM-based: fire poly click every totalPulses/polyNum pulses
         const polyStep = totalPulses / cc.polyNum;
         if (pulse % polyStep < 0.01 || Math.abs(pulse % polyStep - polyStep) < 0.01) {
-          triggerSound(soundsRef.current, cc.polySound, cc.polyVol * 0.85, time);
+          playSound(ac, noiseBufRef.current, cc.polySound, cc.polyVol * 0.85, time);
         }
       }
 
-      // ── Voice count ──
+      /* ── Voice count ── */
       if (cc.voiceCount && pulse % cc.ppb === 0) {
         const beatNum = Math.floor(pulse / cc.ppb) + 1;
-        Tone.getDraw().schedule(() => sayBeat(beatNum), time);
+        const d = Math.max(0, (time - ac.currentTime) * 1000);
+        setTimeout(() => sayBeat(beatNum), d);
       }
 
-      // ── UI update ──
-      Tone.getDraw().schedule(() => {
-        try {
-          setBeat(pulse);
-          setCurrentBar(barRef.current);
-          setIsMuted(!!silent);
-        } catch {}
-      }, time);
+      /* ── UI update (fire when audio actually plays) ── */
+      const uiDelay = Math.max(0, (time - ac.currentTime) * 1000);
+      const sp = pulse, sb = bar, ss = silent;
+      setTimeout(() => {
+        if (isRunningRef.current) { setBeat(sp); setCurrentBar(sb); setIsMuted(ss); }
+      }, uiDelay);
 
-      // ── Advance counters ──
+      /* ── Advance time pointer ── */
+      const liveBpm = cc.trainerEnabled ? bpmRampRef.current : cc.bpm;
+      const spp = (60 / liveBpm) / cc.ppb;  // seconds per pulse
+
+      let dur = spp;
+      if (cc.swing > 50 && cc.ppb >= 2) {
+        const r = cc.swing / 50;  // 1.0 – 1.5
+        dur = (pulseRef.current % 2 === 0)
+          ? spp * (2 * r) / (r + 1)
+          : spp * 2       / (r + 1);
+      }
+      nextTimeRef.current += dur;
+
+      /* ── Advance counters ── */
       pulseRef.current++;
-      if (pulse === totalPulses - 1) {
+      if (pulseRef.current % totalPulses === 0) {
         barRef.current++;
         if (cc.gapEnabled) {
+          const gapTotal = cc.gapPlay + cc.gapSilence;
           gapCycleRef.current = (gapCycleRef.current + 1) % gapTotal;
         }
       }
-    }, interval);
+    }
 
-    loopRef.current.start(0);
-  }, [sayBeat]);
+    /* Re-run in 25 ms */
+    timerRef.current = setTimeout(() => scheduleRef.current?.(), 25);
+  };
 
   /* ── Public: start ── */
   const start = useCallback(async (overrideBpm, overrideSub) => {
-    await Tone.start();
-    await Tone.getContext().resume();
-    // Lazy-init sounds after user gesture unlocks AudioContext
-    if (!soundsRef.current) {
-      soundsRef.current = buildSounds();
-      const v = { click:-4, wood:-2, hat:-10, rim:-6, kick:-2, beep:0, cowbell:-8 };
-      Object.entries(v).forEach(([k,db]) => { try { soundsRef.current[k].volume.value = db; } catch {} });
+    /* Create AudioContext on first user gesture */
+    if (!acRef.current) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { console.error("Web Audio API not supported"); return; }
+      acRef.current = new AC();
     }
+    if (acRef.current.state === "suspended") {
+      await acRef.current.resume();
+    }
+
+    /* Create hi-hat noise buffer (once) */
+    if (!noiseBufRef.current) {
+      const ac = acRef.current;
+      const frames = Math.ceil(ac.sampleRate * 0.05);
+      const buf = ac.createBuffer(1, frames, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < frames; i++) d[i] = Math.random() * 2 - 1;
+      noiseBufRef.current = buf;
+    }
+
     if (overrideBpm) setCfg(c => ({ ...c, bpm: overrideBpm }));
     if (overrideSub) setCfg(c => ({ ...c, subId: overrideSub }));
-    Tone.getTransport().bpm.value = overrideBpm || cfgRef.current.bpm;
-    bpmRampRef.current = overrideBpm || cfgRef.current.bpm;
-    pulseRef.current = 0; barRef.current = 0; gapCycleRef.current = 0;
-    Tone.getTransport().cancel();
-    rebuildLoop();
-    Tone.getTransport().start();
-    setIsPlaying(true); setBeat(0); setCurrentBar(0);
-  }, [rebuildLoop]);
+
+    bpmRampRef.current   = overrideBpm || cfgRef.current.bpm;
+    nextTimeRef.current  = acRef.current.currentTime + 0.05;
+    pulseRef.current     = 0;
+    barRef.current       = 0;
+    gapCycleRef.current  = 0;
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    isRunningRef.current = true;
+    scheduleRef.current();   // kick off
+
+    setIsPlaying(true); setBeat(0); setCurrentBar(0); setIsMuted(false);
+  }, []);
 
   /* ── Public: stop ── */
   const stop = useCallback(() => {
-    Tone.getTransport().stop(); Tone.getTransport().cancel();
-    loopRef.current?.stop();
+    isRunningRef.current = false;
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     setIsPlaying(false); setBeat(0); setCurrentBar(0); setIsMuted(false);
     pulseRef.current = 0; barRef.current = 0;
   }, []);
 
-  /* ── Public: update config live — accepts object OR updater function ── */
+  /* ── Cleanup on unmount ── */
+  useEffect(() => {
+    return () => {
+      isRunningRef.current = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      try { acRef.current?.close(); } catch {}
+    };
+  }, []);
+
+  /* ── Public: update config (object or updater fn) ── */
   const update = useCallback((patch) => {
     setCfg(c => {
       const resolved = typeof patch === "function" ? patch(c) : patch;
       const next = { ...c, ...resolved };
-      // recalc ppb if subId changed
-      if (patch.subId) {
+      if (resolved.subId) {
         const ppbMap = { quarter:1, eighth:2, triplet:3, sixteenth:4, quintuplet:5, sextuplet:6 };
-        next.ppb = ppbMap[patch.subId] || 1;
+        next.ppb = ppbMap[resolved.subId] || 1;
       }
-      // rebuild grid if timeNum or ppb changed
-      if (patch.timeNum || patch.subId || patch.ppb) {
-        const tNum = patch.timeNum || next.timeNum;
-        const ppb  = next.ppb;
-        next.grid  = makeGrid(tNum, ppb);
+      if (resolved.timeNum || resolved.subId || resolved.ppb) {
+        const tNum = resolved.timeNum || next.timeNum;
+        next.grid = makeGrid(tNum, next.ppb);
       }
       return next;
     });
   }, []);
 
-  /* ── Update Tone BPM live when bpm changes ── */
-  useEffect(() => {
-    if (isPlaying) {
-      Tone.getTransport().bpm.value = cfg.bpm;
-      bpmRampRef.current = cfg.bpm;
-    }
-  }, [cfg.bpm, isPlaying]);
-
-  /* ── Rebuild loop when key params change while playing ── */
+  /* ── Reset pulse when time sig / ppb changes while playing ── */
   const prevKeyRef = useRef("");
   useEffect(() => {
-    const key = `${cfg.timeNum}-${cfg.ppb}-${cfg.gapEnabled}-${cfg.gapPlay}-${cfg.gapSilence}-${cfg.gapMode}-${cfg.polyEnabled}-${cfg.polyNum}`;
+    const key = `${cfg.timeNum}-${cfg.ppb}`;
     if (isPlaying && key !== prevKeyRef.current) {
-      prevKeyRef.current = key;
-      Tone.getTransport().cancel();
-      rebuildLoop();
+      pulseRef.current = 0;
+      barRef.current   = 0;
     }
     prevKeyRef.current = key;
-  }, [cfg.timeNum, cfg.ppb, cfg.gapEnabled, cfg.gapPlay, cfg.gapSilence, cfg.gapMode, cfg.polyEnabled, cfg.polyNum, isPlaying, rebuildLoop]);
+  }, [cfg.timeNum, cfg.ppb, isPlaying]);
 
   /* ── Tap tempo ── */
   const tapTimestamps = useRef([]);
@@ -283,18 +304,14 @@ export function useMetronome() {
     const now = Date.now();
     const taps = tapTimestamps.current;
     taps.push(now);
-    // keep last 8 taps
     if (taps.length > 8) taps.splice(0, taps.length - 8);
-    // need at least 2 taps
     if (taps.length < 2) return;
-    // drop taps older than 3 seconds from the last tap
     const recent = taps.filter(t => now - t < 3000);
     tapTimestamps.current = recent;
     if (recent.length < 2) return;
-    const intervals = recent.slice(1).map((t,i) => t - recent[i]);
-    const avg = intervals.reduce((a,b)=>a+b,0) / intervals.length;
-    const newBpm = clamp(Math.round(60000 / avg), 20, 400);
-    update({ bpm: newBpm });
+    const intervals = recent.slice(1).map((t, i) => t - recent[i]);
+    const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    update({ bpm: clamp(Math.round(60000 / avg), 20, 400) });
   }, [update]);
 
   /* ── Grid cell toggle ── */
@@ -302,19 +319,18 @@ export function useMetronome() {
     setCfg(c => {
       const grid = c.grid.map((cell, i) => {
         if (i !== idx) return cell;
-        const levels = BEAT_LEVELS;
-        const next = levels[(levels.indexOf(cell.level) + 1) % levels.length];
-        return { ...cell, level: next };
+        const nxt = BEAT_LEVELS[(BEAT_LEVELS.indexOf(cell.level) + 1) % BEAT_LEVELS.length];
+        return { ...cell, level: nxt };
       });
       return { ...c, grid };
     });
   }, []);
 
   const setGridCellSound = useCallback((idx, sound) => {
-    setCfg(c => {
-      const grid = c.grid.map((cell, i) => i === idx ? { ...cell, sound } : cell);
-      return { ...c, grid };
-    });
+    setCfg(c => ({
+      ...c,
+      grid: c.grid.map((cell, i) => i === idx ? { ...cell, sound } : cell),
+    }));
   }, []);
 
   /* ── Current ramp BPM (for display during trainer) ── */
