@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { loadData, saveData, loadLogs, saveLogs } from "./lib/storage.js";
+import { supabase, cloudSaveData, cloudLoadData, cloudSaveLogs, cloudLoadLogs } from "./lib/supabase.js";
 import {
   getToday, getTodayIdx, calcStreak, uid, clamp,
   DAYS_FULL, DAYS, calcWeekCompletion, fmtDur,
@@ -482,13 +483,117 @@ function Home({ data, logs, onGoRoutine, onGoVault, onGoPractice, metro }) {
 /* ═══════════════════════════════════════════════
    DrumPracticeApp — main export
 ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   Login screen
+═══════════════════════════════════════════════ */
+function LoginScreen({ onLogin }) {
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode]         = useState("login"); // "login" | "register"
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+
+  const handle = async () => {
+    if (!email || !password) return;
+    setLoading(true); setError(null);
+    try {
+      let res;
+      if (mode === "register") {
+        res = await supabase.auth.signUp({ email, password });
+      } else {
+        res = await supabase.auth.signInWithPassword({ email, password });
+      }
+      if (res.error) throw res.error;
+      onLogin(res.data.user);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "#08080C",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      padding: 32, maxWidth: 480, left: "50%", transform: "translateX(-50%)", width: "100%",
+    }}>
+      <div style={{ position: "absolute", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle,rgba(255,191,0,0.07) 0%,transparent 70%)", top: -100, right: -80, pointerEvents: "none" }} />
+
+      <h1 className="hl" style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.04em", marginBottom: 6 }}>
+        <span style={{ color: "#ffbf00" }}>Drum</span>
+        <span style={{ color: "#F0EDE8" }}> Practice</span>
+      </h1>
+      <p style={{ color: "rgba(240,237,232,0.4)", fontSize: 13, marginBottom: 40 }}>
+        {mode === "login" ? "Entra para sincronizar tus datos" : "Crea tu cuenta"}
+      </p>
+
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+        <input
+          type="email" placeholder="tu@email.com" value={email}
+          onChange={e => setEmail(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handle()}
+          style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "#F0EDE8", fontSize: 15, outline: "none" }}
+        />
+        <input
+          type="password" placeholder="Contraseña" value={password}
+          onChange={e => setPassword(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handle()}
+          style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "#F0EDE8", fontSize: 15, outline: "none" }}
+        />
+        {error && <p style={{ color: "#f43f5e", fontSize: 12, margin: 0 }}>{error}</p>}
+        <button
+          onClick={handle} disabled={loading} className="hl"
+          style={{ padding: 16, borderRadius: 12, border: "none", background: "linear-gradient(135deg,#ffbf00,#ff8c00)", color: "#08080C", fontSize: 15, fontWeight: 800, cursor: "pointer", opacity: loading ? 0.6 : 1 }}
+        >
+          {loading ? "..." : mode === "login" ? "ENTRAR" : "CREAR CUENTA"}
+        </button>
+        <button
+          onClick={() => { setMode(m => m === "login" ? "register" : "login"); setError(null); }}
+          style={{ background: "none", border: "none", color: "rgba(240,237,232,0.4)", fontSize: 13, cursor: "pointer", padding: 4 }}
+        >
+          {mode === "login" ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Entra"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function DrumPracticeApp() {
-  const [data, setData]     = useState(() => loadData());
-  const [logs, setLogs]     = useState(() => loadLogs());
-  const [tab, setTab]       = useState("home");
+  const [user, setUser]         = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [data, setData]         = useState(() => loadData());
+  const [logs, setLogs]         = useState(() => loadLogs());
+  const [tab, setTab]           = useState("home");
   const [practiceMode, setPracticeMode] = useState("session");
-  const [practiceSession, setPractice]  = useState(null); // categoryId string | null
+  const [practiceSession, setPractice]  = useState(null);
   const { toast, show: showToast } = useToast();
+
+  /* ── Auth listener + cloud sync on login ── */
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthReady(true);
+      if (session?.user) syncFromCloud();
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) syncFromCloud();
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const syncFromCloud = async () => {
+    const [cloudData, cloudLogs] = await Promise.all([cloudLoadData(), cloudLoadLogs()]);
+    if (cloudData) {
+      setData(cloudData);
+      saveData(cloudData);
+    }
+    if (cloudLogs && cloudLogs.length > 0) {
+      setLogs(cloudLogs);
+      saveLogs(cloudLogs);
+    }
+  };
 
   const metro = useMetronome();
 
@@ -541,15 +646,27 @@ export default function DrumPracticeApp() {
 
     setData(nd);
     saveData(nd);
+    cloudSaveData(nd);
     setLogs(nl);
     saveLogs(nl);
+    cloudSaveLogs(nl);
     showToast("¡Sesión completada! 🎯");
     setPractice(null);
+  };
+
+  /* ─── setData wrapper that also syncs to cloud ─── */
+  const setDataAndSync = (nd) => {
+    setData(nd);
+    saveData(nd);
+    cloudSaveData(nd);
   };
 
   const aurora = AURORA_MAP[tab] || AURORA_MAP.home;
 
   /* ─── render ─── */
+  if (!authReady) return null;
+  if (!user) return <LoginScreen onLogin={setUser} />;
+
   return (
     <div style={{
       position: "fixed", inset: 0,
@@ -589,7 +706,7 @@ export default function DrumPracticeApp() {
         {tab === "routine" && (
           <RoutineTimeline
             data={data}
-            setData={setData}
+            setData={setDataAndSync}
             logs={logs}
             showToast={showToast}
           />
@@ -597,7 +714,7 @@ export default function DrumPracticeApp() {
         {tab === "vault" && (
           <Vault
             data={data}
-            setData={setData}
+            setData={setDataAndSync}
             showToast={showToast}
           />
         )}
