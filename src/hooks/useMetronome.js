@@ -116,14 +116,16 @@ export function useMetronome() {
   const scheduleRef = useRef(null);
   /* Reassigned on every render so it always reads fresh cfg via cfgRef */
   scheduleRef.current = function scheduler() {
+    try {
     const ac = acRef.current;
     if (!ac || !isRunningRef.current) return;
 
     const cc = cfgRef.current;
-    const totalPulses = cc.timeNum * cc.ppb;
+    const totalPulses = Math.max(1, (cc.timeNum || 4) * (cc.ppb || 1));
 
-    /* Schedule all notes that fall within the next 120 ms */
-    while (nextTimeRef.current < ac.currentTime + 0.12) {
+    /* Schedule all notes that fall within the next 120 ms — max 32 iterations guard */
+    let safetyGuard = 0;
+    while (nextTimeRef.current < ac.currentTime + 0.12 && safetyGuard++ < 32) {
       const pulse = pulseRef.current % totalPulses;
       const bar   = barRef.current;
       const time  = nextTimeRef.current;
@@ -198,6 +200,7 @@ export function useMetronome() {
           ? spp * (2 * r) / (r + 1)
           : spp * 2       / (r + 1);
       }
+      if (!dur || dur <= 0 || !isFinite(dur)) dur = 0.5; // safety: never zero/NaN/Inf
       nextTimeRef.current += dur;
 
       /* ── Advance counters ── */
@@ -213,44 +216,47 @@ export function useMetronome() {
 
     /* Re-run in 25 ms */
     timerRef.current = setTimeout(() => scheduleRef.current?.(), 25);
+    } catch(e) { console.error("Scheduler error:", e); }
   };
 
-  /* ── Public: start ── */
-  const start = useCallback(async (overrideBpm, overrideSub) => {
-    /* Create AudioContext on first user gesture */
-    if (!acRef.current) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) { console.error("Web Audio API not supported"); return; }
-      acRef.current = new AC();
+  /* ── Public: start (synchronous — keeps user gesture for AudioContext) ── */
+  const start = useCallback(() => {
+    try {
+      /* Create AudioContext on first user gesture */
+      if (!acRef.current) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) { console.error("Web Audio API not supported"); return; }
+        acRef.current = new AC();
+      }
+      /* Resume if suspended — fire and forget, don't await */
+      if (acRef.current.state === "suspended") {
+        acRef.current.resume().catch(() => {});
+      }
+
+      /* Create hi-hat noise buffer (once) */
+      if (!noiseBufRef.current) {
+        const ac = acRef.current;
+        const frames = Math.ceil(ac.sampleRate * 0.05);
+        const buf = ac.createBuffer(1, frames, ac.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < frames; i++) d[i] = Math.random() * 2 - 1;
+        noiseBufRef.current = buf;
+      }
+
+      bpmRampRef.current   = cfgRef.current.bpm;
+      nextTimeRef.current  = acRef.current.currentTime + 0.05;
+      pulseRef.current     = 0;
+      barRef.current       = 0;
+      gapCycleRef.current  = 0;
+
+      if (timerRef.current) clearTimeout(timerRef.current);
+      isRunningRef.current = true;
+      scheduleRef.current();   // kick off
+
+      setIsPlaying(true); setBeat(0); setCurrentBar(0); setIsMuted(false);
+    } catch(e) {
+      console.error("start() error:", e);
     }
-    if (acRef.current.state === "suspended") {
-      await acRef.current.resume();
-    }
-
-    /* Create hi-hat noise buffer (once) */
-    if (!noiseBufRef.current) {
-      const ac = acRef.current;
-      const frames = Math.ceil(ac.sampleRate * 0.05);
-      const buf = ac.createBuffer(1, frames, ac.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < frames; i++) d[i] = Math.random() * 2 - 1;
-      noiseBufRef.current = buf;
-    }
-
-    if (overrideBpm) setCfg(c => ({ ...c, bpm: overrideBpm }));
-    if (overrideSub) setCfg(c => ({ ...c, subId: overrideSub }));
-
-    bpmRampRef.current   = overrideBpm || cfgRef.current.bpm;
-    nextTimeRef.current  = acRef.current.currentTime + 0.05;
-    pulseRef.current     = 0;
-    barRef.current       = 0;
-    gapCycleRef.current  = 0;
-
-    if (timerRef.current) clearTimeout(timerRef.current);
-    isRunningRef.current = true;
-    scheduleRef.current();   // kick off
-
-    setIsPlaying(true); setBeat(0); setCurrentBar(0); setIsMuted(false);
   }, []);
 
   /* ── Public: stop ── */

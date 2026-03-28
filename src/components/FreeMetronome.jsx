@@ -362,14 +362,12 @@ export default function FreeMetronome({ metro }) {
         <button onClick={() => {
           if (isPlaying) { stop(); setPlayError(null); setDebugMsg(""); return; }
           setPlayError(null);
-          setDebugMsg("Iniciando...");
           try {
-            const p = start();
-            setDebugMsg("start() llamado");
-            p.then(() => setDebugMsg("OK ✓"))
-             .catch(err => { setDebugMsg("ERROR: " + (err?.message || String(err))); setPlayError("Error"); });
+            start();
+            setDebugMsg("OK ✓");
           } catch(e) {
-            setDebugMsg("ERROR SYNC: " + (e?.message || String(e)));
+            setDebugMsg("ERROR: " + (e?.message || String(e)));
+            setPlayError("Error de audio");
           }
         }}
           style={{
