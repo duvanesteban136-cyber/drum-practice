@@ -703,7 +703,7 @@ export default function DrumPracticeApp() {
 
   /* ─── render ─── */
   if (!authReady) return null;
-  if (!user) return <LoginScreen onLogin={setUser} />;
+  // Auth is optional — app works without login (cloud sync disabled when no user)
 
   return (
     <div style={{
