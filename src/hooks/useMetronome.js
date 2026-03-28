@@ -233,6 +233,14 @@ export function useMetronome() {
         acRef.current.resume().catch(() => {});
       }
 
+      /* iOS Safari unlock: play a silent buffer synchronously within user gesture */
+      try {
+        const unlock = acRef.current.createBufferSource();
+        unlock.buffer = acRef.current.createBuffer(1, 1, 22050);
+        unlock.connect(acRef.current.destination);
+        unlock.start(0);
+      } catch(e) {}
+
       /* Create hi-hat noise buffer (once) */
       if (!noiseBufRef.current) {
         const ac = acRef.current;
