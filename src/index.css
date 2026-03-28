@@ -261,3 +261,8 @@ button:active { transform: scale(0.96); }
 .stagger > *:nth-child(6) { animation-delay: 0.25s; }
 .stagger > *:nth-child(7) { animation-delay: 0.30s; }
 .stagger > *:nth-child(8) { animation-delay: 0.35s; }
+
+/* ─── iPad optimizations ─── */
+@media (min-width: 768px) {
+  .nav-item-label { font-size: 11px !important; }
+}

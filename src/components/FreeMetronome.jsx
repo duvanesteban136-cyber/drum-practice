@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { SUBDIVISIONS, SOUNDS, GAP_MODES, clamp } from "../lib/constants.js";
 import { makeGrid } from "../hooks/useMetronome.js";
 
@@ -78,8 +79,8 @@ function Stepper({ value, onChange, min, max }) {
 }
 
 function Sheet({ title, icon, onClose, children }) {
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, zIndex: 9000, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }} />
       <div style={{
         position: "relative", background: "rgba(15,15,20,0.97)",
@@ -99,7 +100,8 @@ function Sheet({ title, icon, onClose, children }) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -112,10 +114,18 @@ export default function FreeMetronome({ metro }) {
   const [cellPopover, setCellPopover]   = useState(null);
   const [longPressTimer, setLongPress]  = useState(null);
   const [flashBeat, setFlashBeat]       = useState(false);
+  const [playError, setPlayError]       = useState(null);
+  const [arcDiameter, setArcDiameter]   = useState(() => Math.min(Math.round(window.innerWidth * 0.82), 310));
 
   const bpmHoldRef  = useRef(null);
   const dragRef     = useRef({ active: false, startY: 0, startBpm: 0 });
   const prevBeatRef = useRef(null);
+
+  useEffect(() => {
+    const onResize = () => setArcDiameter(Math.min(Math.round(window.innerWidth * 0.82), 310));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     if (isPlaying && beat === 0 && beat !== prevBeatRef.current) {
@@ -155,10 +165,12 @@ export default function FreeMetronome({ metro }) {
     setTimeout(() => setTapFlash(false), 140);
   }, [tapTempo]);
 
-  const arcRadius = 100;
+  const arcRadius = arcDiameter / 2 - 12;
   const arcCirc   = 2 * Math.PI * arcRadius;
   const arcDash   = ((cfg.bpm - 20) / 380) * arcCirc;
   const cellSize  = cfg.ppb <= 3 ? 44 : 34;
+  const bpmFontSize = Math.round(arcDiameter * 0.38);
+  const arcCenter = arcDiameter / 2;
 
   const currentTrainerBpm = getCurrentBpm();
   const trainerProgress   = cfg.trainerEnabled && isPlaying
@@ -195,18 +207,18 @@ export default function FreeMetronome({ metro }) {
       </div>
 
       {/* ── BPM Hero ── */}
-      <div style={{ display: "flex", justifyContent: "center", flexShrink: 0, paddingTop: 8, position: "relative", zIndex: 1 }}>
-        <div style={{ position: "relative", width: 220, height: 220, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="220" height="220" viewBox="0 0 220 220" style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
-            <circle cx="110" cy="110" r={arcRadius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
-            <circle cx="110" cy="110" r={arcRadius} fill="none" stroke={T.amber} strokeWidth="3"
+      <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", paddingTop: 8, position: "relative", zIndex: 1 }}>
+        <div style={{ position: "relative", width: arcDiameter, height: arcDiameter, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width={arcDiameter} height={arcDiameter} viewBox={`0 0 ${arcDiameter} ${arcDiameter}`} style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
+            <circle cx={arcCenter} cy={arcCenter} r={arcRadius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
+            <circle cx={arcCenter} cy={arcCenter} r={arcRadius} fill="none" stroke={T.amber} strokeWidth="3"
               strokeDasharray={`${arcDash} ${arcCirc}`} strokeLinecap="round"
               style={{ transition: "stroke-dasharray 0.15s" }} />
           </svg>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", cursor: "ns-resize", userSelect: "none", zIndex: 1 }}
             onPointerDown={onBpmPointerDown} onPointerMove={onBpmPointerMove} onPointerUp={onBpmPointerUp}
           >
-            <span className="hl" style={{ fontSize: "5.5rem", fontWeight: 900, color: T.text1, lineHeight: 1, letterSpacing: "-0.05em" }}>
+            <span className="hl" style={{ fontSize: bpmFontSize, fontWeight: 900, color: T.text1, lineHeight: 1, letterSpacing: "-0.05em" }}>
               {displayBpm}
             </span>
             <span className="hl" style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.2em", color: T.amber, opacity: 0.7, marginTop: 4 }}>BPM</span>
@@ -339,8 +351,20 @@ export default function FreeMetronome({ metro }) {
       </div>
 
       {/* ── Play / Pause ── */}
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 88, position: "relative", zIndex: 1 }}>
-        <button onClick={isPlaying ? stop : start}
+      <div style={{ flexShrink: 0, paddingBottom: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 88, position: "relative", zIndex: 1, gap: 8 }}>
+        {playError && (
+          <span style={{ fontSize: 10, color: "#f43f5e", textAlign: "center", maxWidth: 220 }}>{playError}</span>
+        )}
+        <button onClick={async () => {
+          if (isPlaying) { stop(); setPlayError(null); return; }
+          try {
+            setPlayError(null);
+            await start();
+          } catch (err) {
+            setPlayError("Error de audio — toca aquí para reintentar");
+            console.error("Metronome start error:", err);
+          }
+        }}
           style={{
             width: 72, height: 72, borderRadius: "50%",
             background: isPlaying ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg,#ffbf00,#ff8c00)",

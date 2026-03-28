@@ -191,9 +191,11 @@ export function useMetronome() {
 
       // ── UI update ──
       Tone.getDraw().schedule(() => {
-        setBeat(pulse);
-        setCurrentBar(barRef.current);
-        setIsMuted(!!silent);
+        try {
+          setBeat(pulse);
+          setCurrentBar(barRef.current);
+          setIsMuted(!!silent);
+        } catch {}
       }, time);
 
       // ── Advance counters ──
@@ -212,6 +214,7 @@ export function useMetronome() {
   /* ── Public: start ── */
   const start = useCallback(async (overrideBpm, overrideSub) => {
     await Tone.start();
+    await Tone.getContext().resume();
     if (overrideBpm) setCfg(c => ({ ...c, bpm: overrideBpm }));
     if (overrideSub) setCfg(c => ({ ...c, subId: overrideSub }));
     Tone.getTransport().bpm.value = overrideBpm || cfgRef.current.bpm;

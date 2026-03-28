@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Component } from "react";
 import { loadData, saveData, loadLogs, saveLogs } from "./lib/storage.js";
 import { supabase, cloudSaveData, cloudLoadData, cloudSaveLogs, cloudLoadLogs } from "./lib/supabase.js";
 import {
@@ -15,6 +15,45 @@ import {
   AreaChart, Area, BarChart, Bar, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
+
+/* ═══════════════════════════════════════════════
+   ErrorBoundary
+═══════════════════════════════════════════════ */
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err, info) {
+    console.error("Tab ErrorBoundary caught:", err, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, gap: 16 }}>
+          <span style={{ fontSize: 40 }}>⚠️</span>
+          <p style={{ color: "#F0EDE8", fontSize: 15, textAlign: "center", fontWeight: 600 }}>
+            Algo falló
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            style={{
+              padding: "12px 24px", borderRadius: 999,
+              background: "linear-gradient(135deg,#ffbf00,#ff8c00)",
+              border: "none", color: "#08080C", fontWeight: 700, fontSize: 13, cursor: "pointer",
+            }}
+          >
+            Toca aquí para reintentar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /* ─── Material Icon helper ─── */
 function MI({ children, style }) {
@@ -672,7 +711,8 @@ export default function DrumPracticeApp() {
       position: "fixed", inset: 0,
       background: "#08080C",
       display: "flex", flexDirection: "column",
-      maxWidth: 480, left: "50%", transform: "translateX(-50%)", width: "100%",
+      maxWidth: window.innerWidth >= 768 ? 600 : 480,
+      left: "50%", transform: "translateX(-50%)", width: "100%",
       overflow: "hidden",
     }}>
       {/* Aurora background — changes per tab */}
@@ -682,6 +722,7 @@ export default function DrumPracticeApp() {
       <Toast toast={toast} />
 
       {/* Tab content */}
+      <ErrorBoundary key={tab}>
       <div style={{
         flex: 1,
         overflowY: tab === "practice" ? "hidden" : "auto",
@@ -722,6 +763,7 @@ export default function DrumPracticeApp() {
           <Progress data={data} logs={logs} />
         )}
       </div>
+      </ErrorBoundary>
 
       {/* NavBar */}
       <NavBar tab={tab} setTab={setTab} />
