@@ -86,7 +86,7 @@ function Sheet({ title, icon, onClose, children }) {
         position: "relative", background: "rgba(15,15,20,0.97)",
         backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
         border: "1px solid rgba(255,255,255,0.08)", borderRadius: "20px 20px 0 0",
-        padding: "20px 20px 40px", animation: "slideUp 0.25s cubic-bezier(0.4,0,0.2,1)",
+        padding: "20px 20px 80px", animation: "slideUp 0.25s cubic-bezier(0.4,0,0.2,1)",
         maxHeight: "80vh", overflowY: "auto",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
@@ -189,7 +189,7 @@ export default function FreeMetronome({ metro }) {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: T.bg, overflow: "hidden", position: "relative" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, background: T.bg, overflow: "hidden", position: "relative" }}>
 
       {/* Aurora blobs */}
       <div style={{ position: "absolute", width: 360, height: 360, borderRadius: "50%", background: "radial-gradient(circle,rgba(255,191,0,0.08) 0%,transparent 70%)", top: -100, right: -80, pointerEvents: "none", animation: "auroraA 14s ease-in-out infinite" }} />
@@ -355,15 +355,13 @@ export default function FreeMetronome({ metro }) {
         {playError && (
           <span style={{ fontSize: 10, color: "#f43f5e", textAlign: "center", maxWidth: 220 }}>{playError}</span>
         )}
-        <button onClick={async () => {
+        <button onClick={() => {
           if (isPlaying) { stop(); setPlayError(null); return; }
-          try {
-            setPlayError(null);
-            await start();
-          } catch (err) {
+          setPlayError(null);
+          start().catch(err => {
             setPlayError("Error de audio — toca aquí para reintentar");
             console.error("Metronome start error:", err);
-          }
+          });
         }}
           style={{
             width: 72, height: 72, borderRadius: "50%",

@@ -722,9 +722,9 @@ export default function DrumPracticeApp() {
       <Toast toast={toast} />
 
       {/* Tab content */}
-      <ErrorBoundary key={tab}>
       <div style={{
         flex: 1,
+        minHeight: 0,
         overflowY: tab === "practice" ? "hidden" : "auto",
         overflowX: "hidden",
         position: "relative", zIndex: 1,
@@ -763,7 +763,6 @@ export default function DrumPracticeApp() {
           <Progress data={data} logs={logs} />
         )}
       </div>
-      </ErrorBoundary>
 
       {/* NavBar */}
       <NavBar tab={tab} setTab={setTab} />
