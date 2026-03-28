@@ -115,7 +115,6 @@ export default function FreeMetronome({ metro }) {
   const [longPressTimer, setLongPress]  = useState(null);
   const [flashBeat, setFlashBeat]       = useState(false);
   const [playError, setPlayError]       = useState(null);
-  const [debugMsg,  setDebugMsg]        = useState("");
   const [arcDiameter, setArcDiameter]   = useState(() => Math.min(Math.round(window.innerWidth * 0.82), 310));
 
   const bpmHoldRef  = useRef(null);
@@ -353,22 +352,13 @@ export default function FreeMetronome({ metro }) {
 
       {/* ── Play / Pause ── */}
       <div style={{ flexShrink: 0, paddingBottom: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 88, position: "relative", zIndex: 1, gap: 8 }}>
-        {debugMsg !== "" && (
-          <span style={{ fontSize: 11, color: "#ffbf00", textAlign: "center", maxWidth: 280, padding: "4px 8px", background: "rgba(0,0,0,0.5)", borderRadius: 6 }}>{debugMsg}</span>
-        )}
         {playError && (
           <span style={{ fontSize: 10, color: "#f43f5e", textAlign: "center", maxWidth: 220 }}>{playError}</span>
         )}
         <button onClick={() => {
-          if (isPlaying) { stop(); setPlayError(null); setDebugMsg(""); return; }
+          if (isPlaying) { stop(); setPlayError(null); return; }
           setPlayError(null);
-          try {
-            start();
-            setDebugMsg("OK ✓");
-          } catch(e) {
-            setDebugMsg("ERROR: " + (e?.message || String(e)));
-            setPlayError("Error de audio");
-          }
+          start();
         }}
           style={{
             width: 72, height: 72, borderRadius: "50%",

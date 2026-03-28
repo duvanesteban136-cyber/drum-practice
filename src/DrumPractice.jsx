@@ -702,9 +702,8 @@ export default function DrumPracticeApp() {
   const aurora = AURORA_MAP[tab] || AURORA_MAP.home;
 
   /* ─── render ─── */
-  // AUTH DISABLED FOR TESTING
-  // if (!authReady) return null;
-  // if (!user) return <LoginScreen onLogin={setUser} />;
+  if (!authReady) return null;
+  if (!user) return <LoginScreen onLogin={setUser} />;
 
   return (
     <div style={{
