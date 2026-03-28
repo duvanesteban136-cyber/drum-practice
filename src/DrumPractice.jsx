@@ -22,31 +22,30 @@ import {
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMsg: "" };
   }
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(err) {
+    return { hasError: true, errorMsg: String(err?.message || err) };
   }
   componentDidCatch(err, info) {
-    console.error("Tab ErrorBoundary caught:", err, info);
+    console.error("ErrorBoundary:", err, info);
   }
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, gap: 16 }}>
-          <span style={{ fontSize: 40 }}>⚠️</span>
-          <p style={{ color: "#F0EDE8", fontSize: 15, textAlign: "center", fontWeight: 600 }}>
-            Algo falló
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 12, background: "#1a0505" }}>
+          <span style={{ fontSize: 32 }}>⚠️</span>
+          <p style={{ color: "#ff6b6b", fontSize: 13, fontWeight: 700, textAlign: "center" }}>
+            ERROR — copia este texto:
+          </p>
+          <p style={{ color: "#ffbf00", fontSize: 11, textAlign: "center", wordBreak: "break-all", maxWidth: 300, background: "rgba(0,0,0,0.5)", padding: 10, borderRadius: 8 }}>
+            {this.state.errorMsg}
           </p>
           <button
-            onClick={() => this.setState({ hasError: false })}
-            style={{
-              padding: "12px 24px", borderRadius: 999,
-              background: "linear-gradient(135deg,#ffbf00,#ff8c00)",
-              border: "none", color: "#08080C", fontWeight: 700, fontSize: 13, cursor: "pointer",
-            }}
+            onClick={() => this.setState({ hasError: false, errorMsg: "" })}
+            style={{ padding: "10px 20px", borderRadius: 999, background: "#ffbf00", border: "none", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
           >
-            Toca aquí para reintentar
+            Reintentar
           </button>
         </div>
       );
@@ -723,6 +722,7 @@ export default function DrumPracticeApp() {
       <Toast toast={toast} />
 
       {/* Tab content */}
+      <ErrorBoundary key={tab}>
       <div style={{
         flex: 1,
         minHeight: 0,
@@ -764,6 +764,7 @@ export default function DrumPracticeApp() {
           <Progress data={data} logs={logs} />
         )}
       </div>
+      </ErrorBoundary>
 
       {/* NavBar */}
       <NavBar tab={tab} setTab={setTab} />
