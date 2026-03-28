@@ -115,14 +115,14 @@ export default function FreeMetronome({ metro }) {
   const [longPressTimer, setLongPress]  = useState(null);
   const [flashBeat, setFlashBeat]       = useState(false);
   const [playError, setPlayError]       = useState(null);
-  const [arcDiameter, setArcDiameter]   = useState(() => Math.min(Math.round(window.innerWidth * 0.82), 310));
+  const [arcDiameter, setArcDiameter]   = useState(() => Math.min(Math.round(window.innerWidth * 0.58), 200));
 
   const bpmHoldRef  = useRef(null);
   const dragRef     = useRef({ active: false, startY: 0, startBpm: 0 });
   const prevBeatRef = useRef(null);
 
   useEffect(() => {
-    const onResize = () => setArcDiameter(Math.min(Math.round(window.innerWidth * 0.82), 310));
+    const onResize = () => setArcDiameter(Math.min(Math.round(window.innerWidth * 0.58), 200));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -335,7 +335,15 @@ export default function FreeMetronome({ metro }) {
       {/* ── Feature pills ── */}
       <div style={{ display: "flex", gap: 8, padding: "8px 20px 0", flexShrink: 0, position: "relative", zIndex: 1 }}>
         {FEATURE_PILLS.map(({ id, icon, label, active }) => (
-          <button key={id} onClick={() => setPanel(p => p === id ? null : id)}
+          <button key={id} onClick={() => {
+            const opening = panel !== id;
+            setPanel(p => p === id ? null : id);
+            if (opening) {
+              if (id === "poly"    && !cfg.polyEnabled)    update({ polyEnabled: true });
+              if (id === "gap"     && !cfg.gapEnabled)     update({ gapEnabled: true });
+              if (id === "trainer" && !cfg.trainerEnabled) update({ trainerEnabled: true });
+            }
+          }}
             style={{
               flex: 1, height: 52, borderRadius: 14,
               border: panel === id ? "1px solid rgba(255,191,0,0.35)" : active ? "1px solid rgba(255,191,0,0.2)" : "1px solid rgba(255,255,255,0.07)",
