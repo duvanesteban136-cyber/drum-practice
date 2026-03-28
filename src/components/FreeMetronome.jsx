@@ -249,21 +249,25 @@ export default function FreeMetronome({ metro }) {
         >+</button>
       </div>
 
-      {/* ── Time sig + Subdivision ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 20px 0", overflowX: "auto", flexShrink: 0, position: "relative", zIndex: 1 }} className="no-sb">
-        {TIME_NUMS.map(n => {
-          const a = cfg.timeNum === n;
-          return <button key={n} className="hl" onClick={() => update({ timeNum: n })} style={{ width: 28, height: 28, borderRadius: 6, border: a ? "1px solid rgba(255,191,0,0.4)" : "1px solid rgba(255,255,255,0.08)", background: a ? "rgba(255,191,0,0.15)" : "rgba(255,255,255,0.04)", color: a ? T.amber : T.text3, fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0, transition: "all 0.15s" }}>{n}</button>;
-        })}
-        <span className="hl" style={{ color: "rgba(240,237,232,0.18)", fontSize: 16, flexShrink: 0 }}>/</span>
-        {TIME_DENS.map(d => {
-          const a = cfg.timeDen === d;
-          return <button key={d} className="hl" onClick={() => update({ timeDen: d })} style={{ width: 28, height: 28, borderRadius: 6, border: a ? "1px solid rgba(255,191,0,0.4)" : "1px solid rgba(255,255,255,0.08)", background: a ? "rgba(255,191,0,0.15)" : "rgba(255,255,255,0.04)", color: a ? T.amber : T.text3, fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0, transition: "all 0.15s" }}>{d}</button>;
-        })}
-        <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
+      {/* ── Time sig: tappable numerator / denominator ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, padding: "10px 20px 0", flexShrink: 0, position: "relative", zIndex: 1 }}>
+        <button className="hl" onClick={() => {
+          const idx = TIME_NUMS.indexOf(cfg.timeNum);
+          update({ timeNum: TIME_NUMS[(idx + 1) % TIME_NUMS.length] });
+        }} style={{ width: 56, height: 52, borderRadius: 12, border: "1px solid rgba(255,191,0,0.3)", background: "rgba(255,191,0,0.08)", color: T.amber, fontSize: 28, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: "-0.02em" }}>
+          {cfg.timeNum}
+        </button>
+        <span className="hl" style={{ color: "rgba(240,237,232,0.25)", fontSize: 28, fontWeight: 300, padding: "0 6px", userSelect: "none" }}>/</span>
+        <button className="hl" onClick={() => {
+          const idx = TIME_DENS.indexOf(cfg.timeDen);
+          update({ timeDen: TIME_DENS[(idx + 1) % TIME_DENS.length] });
+        }} style={{ width: 56, height: 52, borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: T.text2, fontSize: 28, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: "-0.02em" }}>
+          {cfg.timeDen}
+        </button>
+        <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)", margin: "0 12px" }} />
         {SUBDIVISIONS.map(s => {
           const a = cfg.subId === s.id;
-          return <button key={s.id} title={s.name} onClick={() => update({ subId: s.id })} style={{ width: 30, height: 28, borderRadius: 6, border: a ? "1px solid rgba(255,191,0,0.4)" : "1px solid rgba(255,255,255,0.08)", background: a ? "rgba(255,191,0,0.15)" : "rgba(255,255,255,0.04)", color: a ? T.amber : T.text3, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>{s.label}</button>;
+          return <button key={s.id} title={s.name} onClick={() => update({ subId: s.id })} style={{ width: 30, height: 30, borderRadius: 6, border: a ? "1px solid rgba(255,191,0,0.4)" : "1px solid rgba(255,255,255,0.08)", background: a ? "rgba(255,191,0,0.15)" : "rgba(255,255,255,0.04)", color: a ? T.amber : T.text3, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>{s.label}</button>;
         })}
       </div>
 
@@ -348,7 +352,7 @@ export default function FreeMetronome({ metro }) {
             }
           }}
             style={{
-              flex: 1, height: 52, borderRadius: 14,
+              flex: 1, height: 44, borderRadius: 14,
               border: panel === id ? "1px solid rgba(255,191,0,0.35)" : active ? "1px solid rgba(255,191,0,0.2)" : "1px solid rgba(255,255,255,0.07)",
               background: panel === id ? "rgba(255,191,0,0.1)" : active ? "rgba(255,191,0,0.05)" : "rgba(255,255,255,0.04)",
               cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center",

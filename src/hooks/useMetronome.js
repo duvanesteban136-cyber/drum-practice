@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { BEAT_LEVELS, BEAT_LEVEL_VOL, clamp } from "../lib/constants.js";
 
+/* Tiny silent MP3 — forces iOS audio session to "playback" mode (bypasses mute switch) */
+const SILENT_MP3 = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqAAAAAAAAAAAAAAAAAAAAAAAAAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAQAAAAAAAAAAbDRuGAAAAAAAAAAAAAAAAAAAAD/4xjEAALAAf+AAACAAJQAP/+MYxA8AAAP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
 /* ─── Default beat grid ─── */
 export function makeGrid(timeNum, ppb = 1) {
   return Array.from({ length: timeNum * ppb }, (_, i) => ({
@@ -68,6 +71,7 @@ export function useMetronome() {
   const noiseBufRef  = useRef(null);
   const timerRef     = useRef(null);
   const isRunningRef = useRef(false);
+  const audioElRef   = useRef(null);  // iOS mute-switch bypass
 
   /* ── Timing refs (mutated directly, never trigger re-render) ── */
   const nextTimeRef  = useRef(0);
@@ -169,9 +173,11 @@ export function useMetronome() {
 
       /* ── Polyrhythm layer ── */
       if (cc.polyEnabled && !silent) {
-        const polyStep = totalPulses / cc.polyNum;
-        if (pulse % polyStep < 0.01 || Math.abs(pulse % polyStep - polyStep) < 0.01) {
-          playSound(ac, noiseBufRef.current, cc.polySound, cc.polyVol * 0.85, time);
+        for (let p = 0; p < cc.polyNum; p++) {
+          if (pulse === Math.round(p * totalPulses / cc.polyNum)) {
+            playSound(ac, noiseBufRef.current, cc.polySound, cc.polyVol * 0.85, time);
+            break;
+          }
         }
       }
 
@@ -214,6 +220,9 @@ export function useMetronome() {
       }
     }
 
+    /* If safety guard triggered, resync nextTime to now so we don't stay stuck */
+    if (safetyGuard >= 32) nextTimeRef.current = ac.currentTime + 0.05;
+
     /* Re-run in 25 ms */
     timerRef.current = setTimeout(() => scheduleRef.current?.(), 25);
     } catch(e) { console.error("Scheduler error:", e); }
@@ -222,6 +231,16 @@ export function useMetronome() {
   /* ── Public: start ── */
   const start = useCallback(() => {
     try {
+      /* iOS mute-switch bypass: <audio> element forces playback audio session */
+      try {
+        if (!audioElRef.current) {
+          audioElRef.current = new Audio(SILENT_MP3);
+          audioElRef.current.loop = true;
+          audioElRef.current.volume = 0.01;
+        }
+        audioElRef.current.play().catch(() => {});
+      } catch(e) {}
+
       /* Create AudioContext on first user gesture */
       if (!acRef.current) {
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -275,6 +294,7 @@ export function useMetronome() {
   const stop = useCallback(() => {
     isRunningRef.current = false;
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    try { if (audioElRef.current) { audioElRef.current.pause(); audioElRef.current.currentTime = 0; } } catch(e) {}
     setIsPlaying(false); setBeat(0); setCurrentBar(0); setIsMuted(false);
     pulseRef.current = 0; barRef.current = 0;
   }, []);
@@ -305,13 +325,15 @@ export function useMetronome() {
     });
   }, []);
 
-  /* ── Reset pulse when time sig / ppb changes while playing ── */
+  /* ── Reset pulse + resync clock when time sig / ppb changes while playing ── */
   const prevKeyRef = useRef("");
   useEffect(() => {
     const key = `${cfg.timeNum}-${cfg.ppb}`;
-    if (isPlaying && key !== prevKeyRef.current) {
-      pulseRef.current = 0;
-      barRef.current   = 0;
+    if (isPlaying && key !== prevKeyRef.current && prevKeyRef.current !== "") {
+      pulseRef.current    = 0;
+      barRef.current      = 0;
+      gapCycleRef.current = 0;
+      if (acRef.current) nextTimeRef.current = acRef.current.currentTime + 0.05;
     }
     prevKeyRef.current = key;
   }, [cfg.timeNum, cfg.ppb, isPlaying]);
