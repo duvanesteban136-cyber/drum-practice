@@ -26,7 +26,7 @@ const SOUND_DEF = {
   hat:     { noise:true,               decay:0.040, gain:0.55 },
 };
 
-function playSound(ac, noiseBuf, soundId, vol, time) {
+function playSound(ac, noiseBuf, soundId, vol, time, pitchMult = 1.0) {
   if (!ac || vol <= 0) return;
   const def = SOUND_DEF[soundId] || SOUND_DEF.click;
   const peak = def.gain * vol;
@@ -41,7 +41,7 @@ function playSound(ac, noiseBuf, soundId, vol, time) {
       src.buffer = noiseBuf;
       const hpf = ac.createBiquadFilter();
       hpf.type = "highpass";
-      hpf.frequency.value = 8000;
+      hpf.frequency.value = 8000 * pitchMult;
       src.connect(hpf);
       hpf.connect(g);
       src.start(time);
@@ -50,10 +50,10 @@ function playSound(ac, noiseBuf, soundId, vol, time) {
       const osc = ac.createOscillator();
       osc.type = def.type;
       if (def.sweep) {
-        osc.frequency.setValueAtTime(150, time);
-        osc.frequency.exponentialRampToValueAtTime(40, time + def.decay);
+        osc.frequency.setValueAtTime(150 * pitchMult, time);
+        osc.frequency.exponentialRampToValueAtTime(40 * pitchMult, time + def.decay);
       } else {
-        osc.frequency.value = def.freq;
+        osc.frequency.value = def.freq * pitchMult;
       }
       osc.connect(g);
       osc.start(time);
@@ -175,7 +175,9 @@ export function useMetronome() {
         const vol   = BEAT_LEVEL_VOL[level] || 0;
         if (vol > 0) {
           const snd = cell.sound || (level === "accent" ? cc.accentSound : level === "ghost" ? cc.ghostSound : cc.sound);
-          playSound(ac, noiseBufRef.current, snd, vol, time);
+          /* Pitch multiplier makes accent/ghost clearly distinguishable beyond just volume */
+          const pitch = level === "accent" ? 1.6 : level === "ghost" ? 0.7 : 1.0;
+          playSound(ac, noiseBufRef.current, snd, vol, time, pitch);
         }
       }
 

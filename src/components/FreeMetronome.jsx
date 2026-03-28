@@ -4,9 +4,9 @@ import { SUBDIVISIONS, SOUNDS, GAP_MODES, clamp } from "../lib/constants.js";
 import { makeGrid } from "../hooks/useMetronome.js";
 
 const BPM_PRESETS = [60, 80, 100, 120, 140, 160];
-const POLY_NUMS   = [2, 3, 5, 7];
-const TIME_NUMS   = [2, 3, 4, 5, 6, 7, 9, 12];
-const TIME_DENS   = [2, 4, 8];
+const POLY_NUMS   = [2, 3, 4, 5, 6, 7];
+const TIME_NUMS   = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+const TIME_DENS   = [2, 4, 8, 16];
 
 const T = {
   bg:    "#08080C",
@@ -104,6 +104,8 @@ export default function FreeMetronome({ metro }) {
   const [flashBeat, setFlashBeat]       = useState(false);
   const [playError, setPlayError]       = useState(null);
   const [arcDiameter, setArcDiameter]   = useState(() => Math.min(Math.round(window.innerWidth * 0.58), 200));
+  const [numPicker, setNumPicker]       = useState(false);
+  const [denPicker, setDenPicker]       = useState(false);
 
   const bpmHoldRef  = useRef(null);
   const dragRef     = useRef({ active: false, startY: 0, startBpm: 0 });
@@ -237,21 +239,58 @@ export default function FreeMetronome({ metro }) {
         >+</button>
       </div>
 
-      {/* ── Time sig: tappable numerator / denominator ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, padding: "10px 20px 0", flexShrink: 0, position: "relative", zIndex: 1 }}>
-        <button className="hl" onClick={() => {
-          const idx = TIME_NUMS.indexOf(cfg.timeNum);
-          update({ timeNum: TIME_NUMS[(idx + 1) % TIME_NUMS.length] });
-        }} style={{ width: 56, height: 52, borderRadius: 12, border: "1px solid rgba(255,191,0,0.3)", background: "rgba(255,191,0,0.08)", color: T.amber, fontSize: 28, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: "-0.02em" }}>
-          {cfg.timeNum}
-        </button>
+      {/* ── Time sig: dropdown pickers ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, padding: "10px 20px 0", flexShrink: 0, position: "relative", zIndex: 2 }}>
+        {/* Numerator */}
+        <div style={{ position: "relative" }}>
+          <button className="hl" onClick={() => { setNumPicker(p => !p); setDenPicker(false); }}
+            style={{ width: 56, height: 52, borderRadius: 12, border: numPicker ? "1px solid rgba(255,191,0,0.6)" : "1px solid rgba(255,191,0,0.3)", background: "rgba(255,191,0,0.08)", color: T.amber, fontSize: 28, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {cfg.timeNum}
+          </button>
+          {numPicker && createPortal(
+            <div style={{ position: "fixed", inset: 0, zIndex: 8000 }} onClick={() => setNumPicker(false)}>
+              <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "rgba(15,15,20,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 16, backdropFilter: "blur(20px)" }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.15em", color: T.text3, marginBottom: 12, textAlign: "center" }}>TIEMPOS POR COMPÁS</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
+                  {TIME_NUMS.map(n => (
+                    <button key={n} className="hl" onClick={() => { update({ timeNum: n }); setNumPicker(false); }}
+                      style={{ width: 44, height: 44, borderRadius: 10, border: cfg.timeNum === n ? "1px solid rgba(255,191,0,0.6)" : "1px solid rgba(255,255,255,0.08)", background: cfg.timeNum === n ? "linear-gradient(135deg,#ffbf00,#ff8c00)" : "rgba(255,255,255,0.05)", color: cfg.timeNum === n ? "#08080C" : T.text1, fontSize: 16, fontWeight: 800, cursor: "pointer" }}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+        </div>
+
         <span className="hl" style={{ color: "rgba(240,237,232,0.25)", fontSize: 28, fontWeight: 300, padding: "0 6px", userSelect: "none" }}>/</span>
-        <button className="hl" onClick={() => {
-          const idx = TIME_DENS.indexOf(cfg.timeDen);
-          update({ timeDen: TIME_DENS[(idx + 1) % TIME_DENS.length] });
-        }} style={{ width: 56, height: 52, borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: T.text2, fontSize: 28, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: "-0.02em" }}>
-          {cfg.timeDen}
-        </button>
+
+        {/* Denominator */}
+        <div style={{ position: "relative" }}>
+          <button className="hl" onClick={() => { setDenPicker(p => !p); setNumPicker(false); }}
+            style={{ width: 56, height: 52, borderRadius: 12, border: denPicker ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: T.text2, fontSize: 28, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {cfg.timeDen}
+          </button>
+          {denPicker && createPortal(
+            <div style={{ position: "fixed", inset: 0, zIndex: 8000 }} onClick={() => setDenPicker(false)}>
+              <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "rgba(15,15,20,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 16, backdropFilter: "blur(20px)" }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.15em", color: T.text3, marginBottom: 12, textAlign: "center" }}>DENOMINADOR</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {TIME_DENS.map(d => (
+                    <button key={d} className="hl" onClick={() => { update({ timeDen: d }); setDenPicker(false); }}
+                      style={{ width: 52, height: 52, borderRadius: 10, border: cfg.timeDen === d ? "1px solid rgba(255,255,255,0.4)" : "1px solid rgba(255,255,255,0.08)", background: cfg.timeDen === d ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.05)", color: cfg.timeDen === d ? T.text1 : T.text2, fontSize: 18, fontWeight: 800, cursor: "pointer" }}>
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+        </div>
+
         <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)", margin: "0 12px" }} />
         {SUBDIVISIONS.map(s => {
           const a = cfg.subId === s.id;
@@ -412,19 +451,43 @@ export default function FreeMetronome({ metro }) {
       {/* ════ POLY SHEET ════ */}
       {panel === "poly" && (
         <Sheet title="Polyrhythm" icon="blur_on" onClose={() => { setPanel(null); update({ polyEnabled: false }); }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ textAlign: "center", paddingBottom: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Ratio display */}
+            <div style={{ textAlign: "center" }}>
               <span className="hl" style={{ fontSize: 44, fontWeight: 900, letterSpacing: "-0.04em" }}>
                 <span style={{ color: T.amber }}>{cfg.timeNum}</span>
                 <span style={{ color: "rgba(240,237,232,0.18)", margin: "0 10px" }}>:</span>
                 <span style={{ color: "#06b6d4" }}>{cfg.polyNum}</span>
               </span>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ ...sheetLabel, marginBottom: 0, minWidth: 52 }}>CAPA 2</span>
-              {POLY_NUMS.map(n => <button key={n} className="hl" onClick={() => update({ polyNum: n })} style={{ ...pillStyle(cfg.polyNum === n), width: 40, height: 36 }}>{n}</button>)}
+
+            {/* Layer 1 — main beat */}
+            <div style={{ background: "rgba(255,191,0,0.04)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(255,191,0,0.12)" }}>
+              <div style={{ ...sheetLabel, color: T.amber, marginBottom: 10 }}>CAPA 1 — PRINCIPAL</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {TIME_NUMS.map(n => (
+                  <button key={n} className="hl" onClick={() => update({ timeNum: n })}
+                    style={{ width: 36, height: 36, borderRadius: 8, border: cfg.timeNum === n ? "1px solid rgba(255,191,0,0.6)" : "1px solid rgba(255,255,255,0.08)", background: cfg.timeNum === n ? "linear-gradient(135deg,#ffbf00,#ff8c00)" : "rgba(255,255,255,0.05)", color: cfg.timeNum === n ? "#08080C" : T.text2, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div><div style={sheetLabel}>SONIDO</div><SoundPicker value={cfg.polySound} onChange={(id) => update({ polySound: id })} /></div>
+
+            {/* Layer 2 — poly */}
+            <div style={{ background: "rgba(6,182,212,0.04)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(6,182,212,0.12)" }}>
+              <div style={{ ...sheetLabel, color: "#06b6d4", marginBottom: 10 }}>CAPA 2 — POLIRRITMO</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {POLY_NUMS.map(n => (
+                  <button key={n} className="hl" onClick={() => update({ polyNum: n })}
+                    style={{ width: 36, height: 36, borderRadius: 8, border: cfg.polyNum === n ? "1px solid rgba(6,182,212,0.6)" : "1px solid rgba(255,255,255,0.08)", background: cfg.polyNum === n ? "rgba(6,182,212,0.25)" : "rgba(255,255,255,0.05)", color: cfg.polyNum === n ? "#06b6d4" : T.text2, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div><div style={sheetLabel}>SONIDO CAPA 2</div><SoundPicker value={cfg.polySound} onChange={(id) => update({ polySound: id })} /></div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ ...sheetLabel, marginBottom: 0, minWidth: 40 }}>VOL</span>
               <input type="range" min={0} max={100} value={Math.round(cfg.polyVol * 100)} onChange={(e) => update({ polyVol: Number(e.target.value) / 100 })} style={{ flex: 1, accentColor: T.amber }} />
