@@ -219,7 +219,7 @@ export function useMetronome() {
     } catch(e) { console.error("Scheduler error:", e); }
   };
 
-  /* ── Public: start (synchronous — keeps user gesture for AudioContext) ── */
+  /* ── Public: start ── */
   const start = useCallback(() => {
     try {
       /* Create AudioContext on first user gesture */
@@ -228,22 +228,18 @@ export function useMetronome() {
         if (!AC) { console.error("Web Audio API not supported"); return; }
         acRef.current = new AC();
       }
-      /* Resume if suspended — fire and forget, don't await */
-      if (acRef.current.state === "suspended") {
-        acRef.current.resume().catch(() => {});
-      }
+      const ac = acRef.current;
 
-      /* iOS Safari unlock: play a silent buffer synchronously within user gesture */
+      /* iOS Safari unlock: silent buffer SYNCHRONOUSLY within user gesture */
       try {
-        const unlock = acRef.current.createBufferSource();
-        unlock.buffer = acRef.current.createBuffer(1, 1, 22050);
-        unlock.connect(acRef.current.destination);
+        const unlock = ac.createBufferSource();
+        unlock.buffer = ac.createBuffer(1, 1, 22050);
+        unlock.connect(ac.destination);
         unlock.start(0);
       } catch(e) {}
 
       /* Create hi-hat noise buffer (once) */
       if (!noiseBufRef.current) {
-        const ac = acRef.current;
         const frames = Math.ceil(ac.sampleRate * 0.05);
         const buf = ac.createBuffer(1, frames, ac.sampleRate);
         const d = buf.getChannelData(0);
@@ -251,17 +247,25 @@ export function useMetronome() {
         noiseBufRef.current = buf;
       }
 
-      bpmRampRef.current   = cfgRef.current.bpm;
-      nextTimeRef.current  = acRef.current.currentTime + 0.05;
-      pulseRef.current     = 0;
-      barRef.current       = 0;
-      gapCycleRef.current  = 0;
-
-      if (timerRef.current) clearTimeout(timerRef.current);
-      isRunningRef.current = true;
-      scheduleRef.current();   // kick off
-
       setIsPlaying(true); setBeat(0); setCurrentBar(0); setIsMuted(false);
+
+      /* Kick off scheduler — wait for context to be running first (critical on iOS) */
+      const kickOff = () => {
+        bpmRampRef.current  = cfgRef.current.bpm;
+        nextTimeRef.current = ac.currentTime + 0.1;
+        pulseRef.current    = 0;
+        barRef.current      = 0;
+        gapCycleRef.current = 0;
+        if (timerRef.current) clearTimeout(timerRef.current);
+        isRunningRef.current = true;
+        scheduleRef.current();
+      };
+
+      if (ac.state === "suspended") {
+        ac.resume().then(kickOff).catch(kickOff);
+      } else {
+        kickOff();
+      }
     } catch(e) {
       console.error("start() error:", e);
     }

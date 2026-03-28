@@ -207,7 +207,7 @@ export default function FreeMetronome({ metro }) {
       </div>
 
       {/* ── BPM Hero ── */}
-      <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", paddingTop: 8, position: "relative", zIndex: 1 }}>
+      <div style={{ flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center", paddingTop: 12, paddingBottom: 4, position: "relative", zIndex: 1 }}>
         <div style={{ position: "relative", width: arcDiameter, height: arcDiameter, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <svg width={arcDiameter} height={arcDiameter} viewBox={`0 0 ${arcDiameter} ${arcDiameter}`} style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
             <circle cx={arcCenter} cy={arcCenter} r={arcRadius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
@@ -321,6 +321,9 @@ export default function FreeMetronome({ metro }) {
         </div>
       </div>
 
+      {/* ── Spacer — pushes feature pills + play to bottom ── */}
+      <div style={{ flex: 1, minHeight: 12 }} />
+
       {/* ── Swing inline ── */}
       {cfg.ppb >= 2 && cfg.ppb <= 4 && (
         <div style={{ margin: "8px 20px 0", display: "flex", alignItems: "center", gap: 10, padding: "0 14px", height: 34, background: "rgba(255,255,255,0.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, position: "relative", zIndex: 1 }}>
@@ -333,7 +336,7 @@ export default function FreeMetronome({ metro }) {
       )}
 
       {/* ── Feature pills ── */}
-      <div style={{ display: "flex", gap: 8, padding: "8px 20px 0", flexShrink: 0, position: "relative", zIndex: 1 }}>
+      <div style={{ display: "flex", gap: 8, padding: "0 20px", flexShrink: 0, position: "relative", zIndex: 1 }}>
         {FEATURE_PILLS.map(({ id, icon, label, active }) => (
           <button key={id} onClick={() => {
             const opening = panel !== id;
@@ -359,7 +362,7 @@ export default function FreeMetronome({ metro }) {
       </div>
 
       {/* ── Play / Pause ── */}
-      <div style={{ flexShrink: 0, paddingBottom: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 88, position: "relative", zIndex: 1, gap: 8 }}>
+      <div style={{ flexShrink: 0, padding: "16px 20px 28px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1, gap: 8 }}>
         {playError && (
           <span style={{ fontSize: 10, color: "#f43f5e", textAlign: "center", maxWidth: 220 }}>{playError}</span>
         )}
