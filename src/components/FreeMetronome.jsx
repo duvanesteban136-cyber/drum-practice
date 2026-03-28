@@ -54,18 +54,6 @@ function SoundPicker({ value, onChange, label }) {
   );
 }
 
-function ToggleSwitch({ value, onChange }) {
-  return (
-    <button onClick={() => onChange(!value)}
-      style={{ width: 44, height: 24, borderRadius: 12, border: "none",
-        background: value ? T.amber : "rgba(255,255,255,0.08)", cursor: "pointer",
-        position: "relative", transition: "background 0.2s", flexShrink: 0 }}
-    >
-      <span style={{ position: "absolute", top: 3, left: value ? 23 : 3, width: 18, height: 18,
-        borderRadius: "50%", background: value ? "#08080C" : "rgba(240,237,232,0.35)", transition: "left 0.2s" }} />
-    </button>
-  );
-}
 
 function Stepper({ value, onChange, min, max }) {
   const btn = { width: 32, height: 32, borderRadius: 6, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: T.text1, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
@@ -343,12 +331,16 @@ export default function FreeMetronome({ metro }) {
       <div style={{ display: "flex", gap: 8, padding: "0 20px", flexShrink: 0, position: "relative", zIndex: 1 }}>
         {FEATURE_PILLS.map(({ id, icon, label, active }) => (
           <button key={id} onClick={() => {
-            const opening = panel !== id;
+            const isOpen = panel === id;
             setPanel(p => p === id ? null : id);
-            if (opening) {
-              if (id === "poly"    && !cfg.polyEnabled)    update({ polyEnabled: true });
-              if (id === "gap"     && !cfg.gapEnabled)     update({ gapEnabled: true });
-              if (id === "trainer" && !cfg.trainerEnabled) update({ trainerEnabled: true });
+            if (!isOpen) {
+              if (id === "poly")    update({ polyEnabled: true });
+              if (id === "gap")     update({ gapEnabled: true });
+              if (id === "trainer") update({ trainerEnabled: true });
+            } else {
+              if (id === "poly")    update({ polyEnabled: false });
+              if (id === "gap")     update({ gapEnabled: false });
+              if (id === "trainer") update({ trainerEnabled: false });
             }
           }}
             style={{
@@ -396,7 +388,7 @@ export default function FreeMetronome({ metro }) {
             {cellPopover ? (
               <>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: -4 }}>
-                  <span style={sheetLabel}>CELL {cellPopover.cellIndex + 1} SOUND</span>
+                  <span style={sheetLabel}>CELDA {cellPopover.cellIndex + 1}</span>
                   <button onClick={() => setCellPopover(null)} style={{ background: "none", border: "none", color: T.text3, cursor: "pointer", fontSize: 11, fontWeight: 600 }}>← VOLVER</button>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -408,17 +400,9 @@ export default function FreeMetronome({ metro }) {
               </>
             ) : (
               <>
-                <div><div style={sheetLabel}>ACCENT</div><SoundPicker value={cfg.accentSound} onChange={(id) => update({ accentSound: id })} /></div>
+                <div><div style={sheetLabel}>ACENTO</div><SoundPicker value={cfg.accentSound} onChange={(id) => update({ accentSound: id })} /></div>
                 <div><div style={sheetLabel}>BEAT</div><SoundPicker value={cfg.sound} onChange={(id) => update({ sound: id })} /></div>
                 <div><div style={sheetLabel}>GHOST</div><SoundPicker value={cfg.ghostSound} onChange={(id) => update({ ghostSound: id })} /></div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                  <button className="hl" onClick={() => update({ voiceCount: !cfg.voiceCount })} style={{ ...pillStyle(cfg.voiceCount), display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="msym" style={{ fontSize: 14 }}>record_voice_over</span>VOICE COUNT
-                  </button>
-                  <button className="hl" onClick={() => update({ countIn: !cfg.countIn })} style={{ ...pillStyle(cfg.countIn), display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="msym" style={{ fontSize: 14 }}>exposure_plus_1</span>COUNT-IN
-                  </button>
-                </div>
               </>
             )}
           </div>
@@ -427,140 +411,116 @@ export default function FreeMetronome({ metro }) {
 
       {/* ════ POLY SHEET ════ */}
       {panel === "poly" && (
-        <Sheet title="Polyrhythm" icon="blur_on" onClose={() => setPanel(null)}>
+        <Sheet title="Polyrhythm" icon="blur_on" onClose={() => { setPanel(null); update({ polyEnabled: false }); }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ ...sheetLabel, marginBottom: 0 }}>ACTIVAR</span>
-              <ToggleSwitch value={cfg.polyEnabled} onChange={(v) => update({ polyEnabled: v })} />
+            <div style={{ textAlign: "center", paddingBottom: 4 }}>
+              <span className="hl" style={{ fontSize: 44, fontWeight: 900, letterSpacing: "-0.04em" }}>
+                <span style={{ color: T.amber }}>{cfg.timeNum}</span>
+                <span style={{ color: "rgba(240,237,232,0.18)", margin: "0 10px" }}>:</span>
+                <span style={{ color: "#06b6d4" }}>{cfg.polyNum}</span>
+              </span>
             </div>
-            {cfg.polyEnabled && (
-              <>
-                <div style={{ textAlign: "center" }}>
-                  <span className="hl" style={{ fontSize: 40, fontWeight: 900, letterSpacing: "-0.04em" }}>
-                    <span style={{ color: T.amber }}>{cfg.timeNum}</span>
-                    <span style={{ color: "rgba(240,237,232,0.2)", margin: "0 8px" }}>:</span>
-                    <span style={{ color: "#06b6d4" }}>{cfg.polyNum}</span>
-                  </span>
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ ...sheetLabel, marginBottom: 0, minWidth: 52 }}>LAYER 2</span>
-                  {POLY_NUMS.map(n => <button key={n} className="hl" onClick={() => update({ polyNum: n })} style={{ ...pillStyle(cfg.polyNum === n), width: 36, height: 34 }}>{n}</button>)}
-                </div>
-                <div><div style={sheetLabel}>SOUND</div><SoundPicker value={cfg.polySound} onChange={(id) => update({ polySound: id })} /></div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ ...sheetLabel, marginBottom: 0, minWidth: 40 }}>VOL</span>
-                  <input type="range" min={0} max={100} value={Math.round(cfg.polyVol * 100)} onChange={(e) => update({ polyVol: Number(e.target.value) / 100 })} style={{ flex: 1, accentColor: T.amber }} />
-                  <span className="mono" style={{ color: T.amber, fontSize: 12, minWidth: 32 }}>{Math.round(cfg.polyVol * 100)}%</span>
-                </div>
-              </>
-            )}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ ...sheetLabel, marginBottom: 0, minWidth: 52 }}>CAPA 2</span>
+              {POLY_NUMS.map(n => <button key={n} className="hl" onClick={() => update({ polyNum: n })} style={{ ...pillStyle(cfg.polyNum === n), width: 40, height: 36 }}>{n}</button>)}
+            </div>
+            <div><div style={sheetLabel}>SONIDO</div><SoundPicker value={cfg.polySound} onChange={(id) => update({ polySound: id })} /></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ ...sheetLabel, marginBottom: 0, minWidth: 40 }}>VOL</span>
+              <input type="range" min={0} max={100} value={Math.round(cfg.polyVol * 100)} onChange={(e) => update({ polyVol: Number(e.target.value) / 100 })} style={{ flex: 1, accentColor: T.amber }} />
+              <span className="mono" style={{ color: T.amber, fontSize: 12, minWidth: 32 }}>{Math.round(cfg.polyVol * 100)}%</span>
+            </div>
           </div>
         </Sheet>
       )}
 
       {/* ════ GAP SHEET ════ */}
       {panel === "gap" && (
-        <Sheet title="Gap Click" icon="pause_circle" onClose={() => setPanel(null)}>
+        <Sheet title="Gap Click" icon="pause_circle" onClose={() => { setPanel(null); update({ gapEnabled: false }); }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ ...sheetLabel, marginBottom: 0 }}>ACTIVAR</span>
-              <ToggleSwitch value={cfg.gapEnabled} onChange={(v) => update({ gapEnabled: v })} />
-            </div>
-            {cfg.gapEnabled && (
-              <>
-                {isPlaying && (
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {Array.from({ length: gapTotal }, (_, i) => {
-                      const isCurr = i === barInCycle;
-                      const isMute = i >= cfg.gapPlay;
-                      return <div key={i} style={{ flex: 1, height: 4, borderRadius: 999, background: isCurr ? T.amber : isMute ? "rgba(255,255,255,0.06)" : "rgba(255,191,0,0.25)", boxShadow: isCurr ? "0 0 8px rgba(255,191,0,0.5)" : "none", transition: "all 0.1s" }} />;
-                    })}
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ ...sheetLabel, marginBottom: 0 }}>PLAY</span>
-                    <Stepper value={cfg.gapPlay} onChange={(v) => update({ gapPlay: v })} min={1} max={8} />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ ...sheetLabel, marginBottom: 0 }}>MUTE</span>
-                    <Stepper value={cfg.gapSilence} onChange={(v) => update({ gapSilence: v })} min={1} max={8} />
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {GAP_MODES.map(m => <button key={m.id} className="hl" onClick={() => update({ gapMode: m.id })} title={m.desc} style={pillStyle(cfg.gapMode === m.id)}>{m.label}</button>)}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ ...sheetLabel, marginBottom: 0, minWidth: 84 }}>RANDOM MUTE</span>
-                  <input type="range" min={0} max={100} value={cfg.randomMute} onChange={(e) => update({ randomMute: Number(e.target.value) })} style={{ flex: 1, accentColor: T.amber }} />
-                  <span className="mono" style={{ color: cfg.randomMute > 0 ? T.amber : T.text3, fontSize: 12, minWidth: 32 }}>{cfg.randomMute}%</span>
-                </div>
-              </>
+            {isPlaying && (
+              <div style={{ display: "flex", gap: 4 }}>
+                {Array.from({ length: gapTotal }, (_, i) => {
+                  const isCurr = i === barInCycle;
+                  const isMute = i >= cfg.gapPlay;
+                  return <div key={i} style={{ flex: 1, height: 4, borderRadius: 999, background: isCurr ? T.amber : isMute ? "rgba(255,255,255,0.06)" : "rgba(255,191,0,0.25)", boxShadow: isCurr ? "0 0 8px rgba(255,191,0,0.5)" : "none", transition: "all 0.1s" }} />;
+                })}
+              </div>
             )}
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ ...sheetLabel, marginBottom: 0 }}>PLAY</span>
+                <Stepper value={cfg.gapPlay} onChange={(v) => update({ gapPlay: v })} min={1} max={8} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ ...sheetLabel, marginBottom: 0 }}>MUTE</span>
+                <Stepper value={cfg.gapSilence} onChange={(v) => update({ gapSilence: v })} min={1} max={8} />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {GAP_MODES.map(m => <button key={m.id} className="hl" onClick={() => update({ gapMode: m.id })} title={m.desc} style={pillStyle(cfg.gapMode === m.id)}>{m.label}</button>)}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ ...sheetLabel, marginBottom: 0, minWidth: 84 }}>RANDOM MUTE</span>
+              <input type="range" min={0} max={100} value={cfg.randomMute} onChange={(e) => update({ randomMute: Number(e.target.value) })} style={{ flex: 1, accentColor: T.amber }} />
+              <span className="mono" style={{ color: cfg.randomMute > 0 ? T.amber : T.text3, fontSize: 12, minWidth: 32 }}>{cfg.randomMute}%</span>
+            </div>
           </div>
         </Sheet>
       )}
 
       {/* ════ TRAINER SHEET ════ */}
       {panel === "trainer" && (
-        <Sheet title="Speed Trainer" icon="speed" onClose={() => setPanel(null)}>
+        <Sheet title="Speed Trainer" icon="speed" onClose={() => { setPanel(null); update({ trainerEnabled: false }); }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ ...sheetLabel, marginBottom: 0 }}>ACTIVAR</span>
-              <ToggleSwitch value={cfg.trainerEnabled} onChange={(v) => update({ trainerEnabled: v })} />
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <span style={{ ...sheetLabel, marginBottom: 2 }}>DESDE</span>
+                <span className="hl" style={{ color: T.amber, fontSize: "1.5rem", fontWeight: 900 }}>{cfg.bpm}</span>
+              </div>
+              <span style={{ color: T.text3, fontSize: 18 }}>→</span>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <span style={{ ...sheetLabel, marginBottom: 2 }}>HASTA</span>
+                <input type="number" min={20} max={400} value={cfg.trainerTarget}
+                  onChange={(e) => update({ trainerTarget: clamp(Number(e.target.value), 20, 400) })}
+                  style={{ width: 72, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: T.amber, fontSize: "1.5rem", fontWeight: 900, textAlign: "center", padding: "2px 4px", fontFamily: "inherit" }}
+                />
+              </div>
+              {isPlaying && (
+                <div style={{ marginLeft: "auto", position: "relative", width: 80, height: 80 }}>
+                  <svg width={80} height={80} viewBox="0 0 80 80" style={{ transform: "rotate(-90deg)" }}>
+                    <circle cx="40" cy="40" r="35" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2.5" />
+                    <circle cx="40" cy="40" r="35" fill="none" stroke={trainerColor} strokeWidth="2.5"
+                      strokeDasharray={`${trainerProgress * 2 * Math.PI * 35} ${2 * Math.PI * 35}`}
+                      strokeLinecap="round" style={{ transition: "stroke-dasharray 0.5s,stroke 0.5s" }} />
+                  </svg>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ ...sheetLabel, marginBottom: 0 }}>AHORA</span>
+                    <span className="mono" style={{ color: trainerColor, fontSize: "0.9rem", fontWeight: 900 }}>{currentTrainerBpm}</span>
+                  </div>
+                </div>
+              )}
             </div>
-            {cfg.trainerEnabled && (
-              <>
-                <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    <span style={{ ...sheetLabel, marginBottom: 2 }}>FROM</span>
-                    <span className="hl" style={{ color: T.amber, fontSize: "1.5rem", fontWeight: 900 }}>{cfg.bpm}</span>
-                  </div>
-                  <span style={{ color: T.text3, fontSize: 18 }}>→</span>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    <span style={{ ...sheetLabel, marginBottom: 2 }}>TO</span>
-                    <input type="number" min={20} max={400} value={cfg.trainerTarget}
-                      onChange={(e) => update({ trainerTarget: clamp(Number(e.target.value), 20, 400) })}
-                      style={{ width: 72, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: T.amber, fontSize: "1.5rem", fontWeight: 900, textAlign: "center", padding: "2px 4px", fontFamily: "inherit" }}
-                    />
-                  </div>
-                  {isPlaying && (
-                    <div style={{ marginLeft: "auto", position: "relative", width: 80, height: 80 }}>
-                      <svg width={80} height={80} viewBox="0 0 80 80" style={{ transform: "rotate(-90deg)" }}>
-                        <circle cx="40" cy="40" r="35" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2.5" />
-                        <circle cx="40" cy="40" r="35" fill="none" stroke={trainerColor} strokeWidth="2.5"
-                          strokeDasharray={`${trainerProgress * 2 * Math.PI * 35} ${2 * Math.PI * 35}`}
-                          strokeLinecap="round" style={{ transition: "stroke-dasharray 0.5s,stroke 0.5s" }} />
-                      </svg>
-                      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ ...sheetLabel, marginBottom: 0 }}>NOW</span>
-                        <span className="mono" style={{ color: trainerColor, fontSize: "0.9rem", fontWeight: 900 }}>{currentTrainerBpm}</span>
-                      </div>
-                    </div>
-                  )}
+            {isPlaying && (
+              <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ width: `${trainerProgress * 100}%`, height: "100%", background: trainerColor, borderRadius: 2, transition: "width 0.5s,background 0.5s" }} />
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              {["ramp", "stairs"].map(t => <button key={t} className="hl" onClick={() => update({ trainerType: t })} style={{ ...pillStyle(cfg.trainerType === t), flex: 1, height: 34 }}>{t === "ramp" ? "RAMPA" : "ESCALERA"}</button>)}
+            </div>
+            {cfg.trainerType === "stairs" && (
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ ...sheetLabel, marginBottom: 0 }}>CADA</span>
+                  <Stepper value={cfg.trainerStairBars} onChange={(v) => update({ trainerStairBars: v })} min={1} max={32} />
+                  <span style={{ ...sheetLabel, marginBottom: 0 }}>compases</span>
                 </div>
-                {isPlaying && (
-                  <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ width: `${trainerProgress * 100}%`, height: "100%", background: trainerColor, borderRadius: 2, transition: "width 0.5s,background 0.5s" }} />
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 8 }}>
-                  {["ramp", "stairs"].map(t => <button key={t} className="hl" onClick={() => update({ trainerType: t })} style={{ ...pillStyle(cfg.trainerType === t), flex: 1, height: 34 }}>{t.toUpperCase()}</button>)}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ ...sheetLabel, marginBottom: 0 }}>+BPM</span>
+                  <Stepper value={cfg.trainerStairStep} onChange={(v) => update({ trainerStairStep: v })} min={1} max={20} />
                 </div>
-                {cfg.trainerType === "stairs" && (
-                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ ...sheetLabel, marginBottom: 0 }}>EVERY</span>
-                      <Stepper value={cfg.trainerStairBars} onChange={(v) => update({ trainerStairBars: v })} min={1} max={32} />
-                      <span style={{ ...sheetLabel, marginBottom: 0 }}>bars</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ ...sheetLabel, marginBottom: 0 }}>+BPM</span>
-                      <Stepper value={cfg.trainerStairStep} onChange={(v) => update({ trainerStairStep: v })} min={1} max={20} />
-                    </div>
-                  </div>
-                )}
-              </>
+              </div>
             )}
           </div>
         </Sheet>
@@ -568,26 +528,20 @@ export default function FreeMetronome({ metro }) {
 
       {/* ════ EXTRAS SHEET ════ */}
       {panel === "extras" && (
-        <Sheet title="Extras" icon="tune" onClose={() => setPanel(null)}>
+        <Sheet title="Ajustes" icon="tune" onClose={() => setPanel(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <div style={sheetLabel}>BPM PRESETS</div>
+              <div style={sheetLabel}>BPM RÁPIDOS</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {BPM_PRESETS.map(b => <button key={b} className="hl" onClick={() => { update({ bpm: b }); setPanel(null); }} style={pillStyle(cfg.bpm === b)}>{b}</button>)}
               </div>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-              <button className="hl" onClick={() => update({ voiceCount: !cfg.voiceCount })} style={{ ...pillStyle(cfg.voiceCount), display: "flex", alignItems: "center", gap: 6 }}>
-                <span className="msym" style={{ fontSize: 14 }}>record_voice_over</span>VOICE COUNT
-              </button>
-              <button className="hl" onClick={() => update({ countIn: !cfg.countIn })} style={{ ...pillStyle(cfg.countIn), display: "flex", alignItems: "center", gap: 6 }}>
-                <span className="msym" style={{ fontSize: 14 }}>exposure_plus_1</span>COUNT-IN
-              </button>
               <button className="hl" onClick={() => { try { document.documentElement.requestFullscreen(); } catch {} setPanel(null); }} style={{ ...pillStyle(false), display: "flex", alignItems: "center", gap: 6 }}>
-                <span className="msym" style={{ fontSize: 14 }}>fullscreen</span>FULLSCREEN
+                <span className="msym" style={{ fontSize: 14 }}>fullscreen</span>PANTALLA COMPLETA
               </button>
               <button className="hl" onClick={() => { update({ grid: makeGrid(cfg.timeNum, cfg.ppb) }); setPanel(null); }} style={{ ...pillStyle(false), display: "flex", alignItems: "center", gap: 6 }}>
-                <span className="msym" style={{ fontSize: 14 }}>restart_alt</span>RESET GRID
+                <span className="msym" style={{ fontSize: 14 }}>restart_alt</span>RESETEAR GRID
               </button>
             </div>
           </div>

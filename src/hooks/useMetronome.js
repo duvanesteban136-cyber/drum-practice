@@ -67,11 +67,12 @@ function playSound(ac, noiseBuf, soundId, vol, time) {
 ════════════════════════════════════════════ */
 export function useMetronome() {
   /* ── Audio engine ── */
-  const acRef        = useRef(null);
-  const noiseBufRef  = useRef(null);
-  const timerRef     = useRef(null);
-  const isRunningRef = useRef(false);
-  const audioElRef   = useRef(null);  // iOS mute-switch bypass
+  const acRef          = useRef(null);
+  const noiseBufRef    = useRef(null);
+  const timerRef       = useRef(null);
+  const isRunningRef   = useRef(false);
+  const audioElRef     = useRef(null);  // iOS mute-switch bypass
+  const barStartTimeRef = useRef(0);    // exact audio time when current bar started
 
   /* ── Timing refs (mutated directly, never trigger re-render) ── */
   const nextTimeRef  = useRef(0);
@@ -95,23 +96,15 @@ export function useMetronome() {
     randomMute:0,
     trainerEnabled:false, trainerTarget:140, trainerType:"ramp",
     trainerStairBars:8, trainerStairStep:2,
-    voiceCount:false, countIn:false,
+    countIn:false,
     grid: makeGrid(4, 1),
   });
 
   const cfgRef = useRef(cfg);
-  useEffect(() => { cfgRef.current = cfg; }, [cfg]);
+  // Note: cfgRef is updated synchronously inside every setCfg call — no useEffect needed
 
   const pulsesPerBar = cfg.timeNum * cfg.ppb;
 
-  /* ── Speech synthesis ── */
-  const sayBeat = useCallback((n) => {
-    try {
-      const u = new SpeechSynthesisUtterance(String(n));
-      u.rate = 2.2; u.volume = 0.9; u.lang = "es-ES";
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-    } catch {}
-  }, []);
 
   /* ════════════════════════════════════
      LOOKAHEAD SCHEDULER
@@ -160,6 +153,21 @@ export function useMetronome() {
       /* ── Random mute ── */
       if (!silent && cc.randomMute > 0 && Math.random() * 100 < cc.randomMute) silent = true;
 
+      /* ── Compute pulse duration FIRST (needed by polyrhythm) ── */
+      const liveBpm = cc.trainerEnabled ? bpmRampRef.current : cc.bpm;
+      const spp = (60 / liveBpm) / cc.ppb;  // seconds per pulse (no swing)
+      let dur = spp;
+      if (cc.swing > 50 && cc.ppb >= 2) {
+        const r = cc.swing / 50;
+        dur = (pulseRef.current % 2 === 0)
+          ? spp * (2 * r) / (r + 1)
+          : spp * 2       / (r + 1);
+      }
+      if (!dur || dur <= 0 || !isFinite(dur)) dur = 0.5;
+
+      /* ── Track bar start time ── */
+      if (pulse === 0) barStartTimeRef.current = time;
+
       /* ── Main click ── */
       if (!silent) {
         const cell  = cc.grid[pulse] || { level:"beat", sound:null };
@@ -171,21 +179,15 @@ export function useMetronome() {
         }
       }
 
-      /* ── Polyrhythm layer ── */
+      /* ── Polyrhythm — time-based, not pulse-counting ── */
       if (cc.polyEnabled && !silent) {
+        const barDur = spp * totalPulses;  // full bar in seconds (nominal, no swing)
         for (let p = 0; p < cc.polyNum; p++) {
-          if (pulse === Math.round(p * totalPulses / cc.polyNum)) {
-            playSound(ac, noiseBufRef.current, cc.polySound, cc.polyVol * 0.85, time);
-            break;
+          const polyTime = barStartTimeRef.current + (p / cc.polyNum) * barDur;
+          if (polyTime >= time - 0.001 && polyTime < time + dur - 0.001) {
+            playSound(ac, noiseBufRef.current, cc.polySound, cc.polyVol * 0.85, polyTime);
           }
         }
-      }
-
-      /* ── Voice count ── */
-      if (cc.voiceCount && pulse % cc.ppb === 0) {
-        const beatNum = Math.floor(pulse / cc.ppb) + 1;
-        const d = Math.max(0, (time - ac.currentTime) * 1000);
-        setTimeout(() => sayBeat(beatNum), d);
       }
 
       /* ── UI update (fire when audio actually plays) ── */
@@ -195,18 +197,6 @@ export function useMetronome() {
         if (isRunningRef.current) { setBeat(sp); setCurrentBar(sb); setIsMuted(ss); }
       }, uiDelay);
 
-      /* ── Advance time pointer ── */
-      const liveBpm = cc.trainerEnabled ? bpmRampRef.current : cc.bpm;
-      const spp = (60 / liveBpm) / cc.ppb;  // seconds per pulse
-
-      let dur = spp;
-      if (cc.swing > 50 && cc.ppb >= 2) {
-        const r = cc.swing / 50;  // 1.0 – 1.5
-        dur = (pulseRef.current % 2 === 0)
-          ? spp * (2 * r) / (r + 1)
-          : spp * 2       / (r + 1);
-      }
-      if (!dur || dur <= 0 || !isFinite(dur)) dur = 0.5; // safety: never zero/NaN/Inf
       nextTimeRef.current += dur;
 
       /* ── Advance counters ── */
@@ -270,13 +260,14 @@ export function useMetronome() {
 
       /* Kick off scheduler — wait for context to be running first (critical on iOS) */
       const kickOff = () => {
-        bpmRampRef.current  = cfgRef.current.bpm;
-        nextTimeRef.current = ac.currentTime + 0.1;
-        pulseRef.current    = 0;
-        barRef.current      = 0;
-        gapCycleRef.current = 0;
+        bpmRampRef.current    = cfgRef.current.bpm;
+        nextTimeRef.current   = ac.currentTime + 0.1;
+        barStartTimeRef.current = ac.currentTime + 0.1;
+        pulseRef.current      = 0;
+        barRef.current        = 0;
+        gapCycleRef.current   = 0;
         if (timerRef.current) clearTimeout(timerRef.current);
-        isRunningRef.current = true;
+        isRunningRef.current  = true;
         scheduleRef.current();
       };
 
@@ -321,6 +312,7 @@ export function useMetronome() {
         const tNum = resolved.timeNum || next.timeNum;
         next.grid = makeGrid(tNum, next.ppb);
       }
+      cfgRef.current = next;  // sync — scheduler sees changes immediately
       return next;
     });
   }, []);
@@ -330,10 +322,14 @@ export function useMetronome() {
   useEffect(() => {
     const key = `${cfg.timeNum}-${cfg.ppb}`;
     if (isPlaying && key !== prevKeyRef.current && prevKeyRef.current !== "") {
-      pulseRef.current    = 0;
-      barRef.current      = 0;
-      gapCycleRef.current = 0;
-      if (acRef.current) nextTimeRef.current = acRef.current.currentTime + 0.05;
+      pulseRef.current        = 0;
+      barRef.current          = 0;
+      gapCycleRef.current     = 0;
+      if (acRef.current) {
+        const t = acRef.current.currentTime + 0.05;
+        nextTimeRef.current      = t;
+        barStartTimeRef.current  = t;
+      }
     }
     prevKeyRef.current = key;
   }, [cfg.timeNum, cfg.ppb, isPlaying]);
@@ -362,15 +358,18 @@ export function useMetronome() {
         const nxt = BEAT_LEVELS[(BEAT_LEVELS.indexOf(cell.level) + 1) % BEAT_LEVELS.length];
         return { ...cell, level: nxt };
       });
-      return { ...c, grid };
+      const next = { ...c, grid };
+      cfgRef.current = next;
+      return next;
     });
   }, []);
 
   const setGridCellSound = useCallback((idx, sound) => {
-    setCfg(c => ({
-      ...c,
-      grid: c.grid.map((cell, i) => i === idx ? { ...cell, sound } : cell),
-    }));
+    setCfg(c => {
+      const next = { ...c, grid: c.grid.map((cell, i) => i === idx ? { ...cell, sound } : cell) };
+      cfgRef.current = next;
+      return next;
+    });
   }, []);
 
   /* ── Current ramp BPM (for display during trainer) ── */
