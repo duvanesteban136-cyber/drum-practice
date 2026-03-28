@@ -100,16 +100,13 @@ export function useMetronome() {
     } catch {}
   }, []);
 
-  /* ── Build/destroy audio nodes once ── */
+  /* ── Cleanup audio nodes on unmount ── */
   useEffect(() => {
-    soundsRef.current = buildSounds();
-    // set initial volumes
-    const v = { click:-4, wood:-2, hat:-10, rim:-6, kick:-2, beep:0, cowbell:-8 };
-    Object.entries(v).forEach(([k,db]) => { try { soundsRef.current[k].volume.value = db; } catch {} });
     return () => {
       loopRef.current?.dispose();
-      Tone.getTransport().stop(); Tone.getTransport().cancel();
+      try { Tone.getTransport().stop(); Tone.getTransport().cancel(); } catch {}
       Object.values(soundsRef.current||{}).forEach(s => { try { s.dispose(); } catch {} });
+      soundsRef.current = null;
     };
   }, []);
 
@@ -215,6 +212,12 @@ export function useMetronome() {
   const start = useCallback(async (overrideBpm, overrideSub) => {
     await Tone.start();
     await Tone.getContext().resume();
+    // Lazy-init sounds after user gesture unlocks AudioContext
+    if (!soundsRef.current) {
+      soundsRef.current = buildSounds();
+      const v = { click:-4, wood:-2, hat:-10, rim:-6, kick:-2, beep:0, cowbell:-8 };
+      Object.entries(v).forEach(([k,db]) => { try { soundsRef.current[k].volume.value = db; } catch {} });
+    }
     if (overrideBpm) setCfg(c => ({ ...c, bpm: overrideBpm }));
     if (overrideSub) setCfg(c => ({ ...c, subId: overrideSub }));
     Tone.getTransport().bpm.value = overrideBpm || cfgRef.current.bpm;
