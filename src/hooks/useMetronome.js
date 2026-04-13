@@ -97,6 +97,7 @@ export function useMetronome() {
     randomMute:0,
     trainerEnabled:false, trainerTarget:140, trainerType:"ramp",
     trainerStairBars:8, trainerStairStep:2,
+    trainerRampBars:4, trainerRampStep:2,
     countIn:false,
     grid: makeGrid(4, 1),
   });
@@ -131,12 +132,16 @@ export function useMetronome() {
       /* ── Speed trainer ── */
       if (cc.trainerEnabled) {
         if (cc.trainerType === "ramp") {
-          const step = (cc.trainerTarget - cc.bpm) / (totalPulses * 32);
-          bpmRampRef.current = clamp(
-            bpmRampRef.current + step,
-            Math.min(cc.bpm, cc.trainerTarget),
-            Math.max(cc.bpm, cc.trainerTarget),
-          );
+          // Step-ramp: bump by trainerRampStep every trainerRampBars bars (at bar start)
+          if (pulse === 0 && bar > 0 && bar % (cc.trainerRampBars || 4) === 0) {
+            const step = cc.trainerRampStep || 2;
+            const dir  = cc.trainerTarget >= cc.bpm ? 1 : -1;
+            bpmRampRef.current = clamp(
+              bpmRampRef.current + dir * step,
+              Math.min(cc.bpm, cc.trainerTarget),
+              Math.max(cc.bpm, cc.trainerTarget),
+            );
+          }
         } else if (cc.trainerType === "stairs" && pulse === 0 && bar > 0 && bar % cc.trainerStairBars === 0) {
           bpmRampRef.current = clamp(bpmRampRef.current + cc.trainerStairStep, 20, 400);
         }

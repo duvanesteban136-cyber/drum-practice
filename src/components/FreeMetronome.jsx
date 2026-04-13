@@ -585,6 +585,19 @@ export default function FreeMetronome({ metro }) {
                 </div>
               </div>
             )}
+            {cfg.trainerType === "ramp" && (
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ ...sheetLabel, marginBottom: 0 }}>CADA</span>
+                  <Stepper value={cfg.trainerRampBars} onChange={(v) => update({ trainerRampBars: v })} min={1} max={32} />
+                  <span style={{ ...sheetLabel, marginBottom: 0 }}>compases</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ ...sheetLabel, marginBottom: 0 }}>+BPM</span>
+                  <Stepper value={cfg.trainerRampStep} onChange={(v) => update({ trainerRampStep: v })} min={1} max={20} />
+                </div>
+              </div>
+            )}
           </div>
         </Sheet>
       )}

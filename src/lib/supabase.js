@@ -25,6 +25,11 @@ export async function cloudSaveData(data) {
       }
       return ex;
     }),
+    songs: (data.songs || []).map(song => {
+      // Strip base64 fileData — songs now use mediaUrl (Supabase Storage).
+      const { fileData, _tempCacheId, ...rest } = song;
+      return rest;
+    }),
   };
 
   const { error } = await supabase.from("user_data").upsert({
@@ -98,4 +103,58 @@ export async function uploadExerciseImage(exerciseId, base64DataUrl) {
     .getPublicUrl(path);
 
   return urlData?.publicUrl || null;
+}
+
+/**
+ * Upload a media file (File object) for a fill to Supabase Storage (bucket: fill-media).
+ * Returns { publicUrl, mimeType } or null on failure.
+ */
+export async function uploadFillMedia(fillId, file) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const ext  = file.name.split(".").pop() || "bin";
+  const path = `${user.id}/${fillId}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from("fill-media")
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (error) {
+    console.error("[uploadFillMedia] error:", error.message);
+    return null;
+  }
+
+  const { data: urlData } = supabase.storage
+    .from("fill-media")
+    .getPublicUrl(path);
+
+  return urlData?.publicUrl ? { publicUrl: urlData.publicUrl, mimeType: file.type } : null;
+}
+
+/**
+ * Upload a media file (File object) for a song to Supabase Storage (bucket: song-media).
+ * Returns { publicUrl, mimeType } or null on failure.
+ */
+export async function uploadSongMedia(songId, file) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const ext  = file.name.split(".").pop() || "bin";
+  const path = `${user.id}/${songId}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from("song-media")
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (error) {
+    console.error("[uploadSongMedia] error:", error.message);
+    return null;
+  }
+
+  const { data: urlData } = supabase.storage
+    .from("song-media")
+    .getPublicUrl(path);
+
+  return urlData?.publicUrl ? { publicUrl: urlData.publicUrl, mimeType: file.type } : null;
 }

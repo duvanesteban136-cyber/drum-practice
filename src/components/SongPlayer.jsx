@@ -75,7 +75,7 @@ function WaveformCanvas({ waveformData, currentTime, duration, loopA, loopB }) {
 }
 
 /* ─── main component ─── */
-export default function SongPlayer({ song, onClose, metro }) {
+export default function SongPlayer({ song, onClose, onSpeedChange, metro }) {
   const {
     mediaRef, fileInfo, isPlaying, duration, currentTime,
     playbackRate, loopA, loopB, abLoopActive, waveformData,
@@ -85,14 +85,25 @@ export default function SongPlayer({ song, onClose, metro }) {
   const [localUrl, setLocalUrl] = useState(song?.playUrl || null);
   const videoRef = useRef(null);
   const audioRef = useRef(null);
+  // track whether we've applied the initial speed yet
+  const initialSpeedApplied = useRef(false);
 
   // Determine if it's a video
-  const isVideo = fileInfo?.isVideo || (song?.fileType || "").startsWith("video/");
+  const isVideo = fileInfo?.isVideo || (song?.fileType || "").startsWith("video/") || (song?.mediaMime || "").startsWith("video/");
 
   // Wire mediaRef to the actual DOM element
   const setMediaEl = useCallback((el) => {
     mediaRef.current = el;
   }, [mediaRef]);
+
+  // Apply lastSpeed once after player mounts
+  useEffect(() => {
+    if (!initialSpeedApplied.current && song?.lastSpeed) {
+      setRate(song.lastSpeed);
+      initialSpeedApplied.current = true;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // If song.playUrl is a data URL or object URL, load it directly
   useEffect(() => {
@@ -123,6 +134,12 @@ export default function SongPlayer({ song, onClose, metro }) {
   const isVideoFile = isVideo || (fileInfo?.isVideo);
 
   const speedPct = Math.round(playbackRate * 100);
+
+  /* ─── speed change — persist ─── */
+  const handleSetRate = (r) => {
+    setRate(r);
+    onSpeedChange?.(song?.id, r);
+  };
 
   /* ─── seek bar change ─── */
   const handleSeek = (e) => {
@@ -333,7 +350,7 @@ export default function SongPlayer({ song, onClose, metro }) {
               max={1.5}
               step={0.05}
               value={playbackRate}
-              onChange={e => setRate(parseFloat(e.target.value))}
+              onChange={e => handleSetRate(parseFloat(e.target.value))}
               style={{ width: "100%", accentColor: "var(--amber)", marginBottom: 10 }}
             />
 
@@ -344,7 +361,7 @@ export default function SongPlayer({ song, onClose, metro }) {
                 return (
                   <button
                     key={p}
-                    onClick={() => setRate(r)}
+                    onClick={() => handleSetRate(r)}
                     className="mono"
                     style={{
                       padding: "5px 12px", borderRadius: 8,

@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { saveData } from "../lib/storage.js";
-import { uid, fmtDur, clamp, getToday, SOUNDS, BEAT_LEVELS, DEFAULT_CATEGORIES } from "../lib/constants.js";
-import { uploadExerciseImage } from "../lib/supabase.js";
+import { uid, fmtDur, clamp, getToday, SOUNDS, BEAT_LEVELS, DEFAULT_CATEGORIES, SUBDIVISIONS } from "../lib/constants.js";
+import { uploadExerciseImage, uploadFillMedia, uploadSongMedia } from "../lib/supabase.js";
 import SongPlayer from "./SongPlayer.jsx";
 
 /* ─── Module-level song file cache (object URLs for large files) ─── */
@@ -131,6 +131,10 @@ const EMPTY_EX = {
   bpm: 80, bpmStart: 60, bpmEnd: 100,
   rampType: "gradual", rampStepBars: 4, rampStepBpm: 2,
   durationSeconds: 60, image: null, notes: "",
+  // Metronome config
+  metroTimeNum: 4, metroTimeDen: 4, metroSubId: "quarter",
+  metroGapEnabled: false, metroGapPlay: 4, metroGapSilence: 4,
+  metroPolyEnabled: false, metroPolyNum: 3,
 };
 
 /* ─── Exercise Form ─── */
@@ -274,7 +278,121 @@ function ExForm({ initial, categories, onSave, onClose }) {
           )}
         </Field>
 
-        <Field label="IMAGEN / PARTITURA (max 200KB)">
+        <Field label="DURACIÓN">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Input type="number" value={form.durationSeconds} onChange={e => set("durationSeconds", +e.target.value)} min={10} max={3600} style={{ width: 90 }} />
+            <span style={{ color: "var(--outline)", fontSize: 13 }}>segundos</span>
+          </div>
+        </Field>
+
+        {/* ── Metronome config ── */}
+        <div style={{ marginBottom: 14 }}>
+          <button
+            onClick={() => set("_metroOpen", !form._metroOpen)}
+            className="hl"
+            style={{
+              width: "100%", padding: "10px 14px", borderRadius: 10, display: "flex",
+              alignItems: "center", justifyContent: "space-between",
+              border: form._metroOpen ? "1px solid rgba(6,182,212,0.4)" : "1px solid var(--outline-v)",
+              background: form._metroOpen ? "rgba(6,182,212,0.06)" : "var(--glass)",
+              color: form._metroOpen ? "var(--cyan)" : "var(--on-sv)",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", cursor: "pointer",
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <MI style={{ fontSize: 16 }}>metronome</MI>
+              CONFIG METRÓNOMO
+            </span>
+            <MI style={{ fontSize: 16 }}>{form._metroOpen ? "expand_less" : "expand_more"}</MI>
+          </button>
+          {form._metroOpen && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 14, padding: "12px 14px", background: "rgba(6,182,212,0.03)", borderRadius: 10, border: "1px solid rgba(6,182,212,0.12)" }}>
+              {/* Time signature */}
+              <div>
+                <label style={{ fontSize: 10, color: "var(--outline)", display: "block", marginBottom: 6 }}>MÉTRICA</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <select value={form.metroTimeNum} onChange={e => set("metroTimeNum", +e.target.value)}
+                    style={{ width: 64, padding: "8px 8px", borderRadius: 8, border: "1px solid var(--outline-v)", background: "var(--s-mid)", color: "var(--on-s)", fontSize: 15, fontWeight: 700, textAlign: "center" }}>
+                    {[2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <span style={{ color: "var(--outline)", fontSize: 22, fontWeight: 300 }}>/</span>
+                  <select value={form.metroTimeDen} onChange={e => set("metroTimeDen", +e.target.value)}
+                    style={{ width: 64, padding: "8px 8px", borderRadius: 8, border: "1px solid var(--outline-v)", background: "var(--s-mid)", color: "var(--on-s)", fontSize: 15, fontWeight: 700, textAlign: "center" }}>
+                    {[2,4,8,16].map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+              </div>
+              {/* Subdivision */}
+              <div>
+                <label style={{ fontSize: 10, color: "var(--outline)", display: "block", marginBottom: 6 }}>SUBDIVISIÓN</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {SUBDIVISIONS.map(s => (
+                    <button key={s.id} onClick={() => set("metroSubId", s.id)} className="hl"
+                      title={s.name}
+                      style={{
+                        padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                        border: form.metroSubId === s.id ? "1px solid var(--cyan)" : "1px solid var(--outline-v)",
+                        background: form.metroSubId === s.id ? "rgba(6,182,212,0.15)" : "var(--glass)",
+                        color: form.metroSubId === s.id ? "var(--cyan)" : "var(--on-sv)",
+                      }}>{s.label} <span style={{ fontSize: 9, opacity: 0.7 }}>{s.name}</span></button>
+                  ))}
+                </div>
+              </div>
+              {/* Polyrhythm */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <button onClick={() => set("metroPolyEnabled", !form.metroPolyEnabled)} className="hl"
+                    style={{
+                      padding: "5px 12px", borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                      border: form.metroPolyEnabled ? "1px solid var(--purple)" : "1px solid var(--outline-v)",
+                      background: form.metroPolyEnabled ? "rgba(168,85,247,0.15)" : "var(--glass)",
+                      color: form.metroPolyEnabled ? "var(--purple)" : "var(--on-sv)",
+                    }}>POLIRRITMO {form.metroPolyEnabled ? "ON" : "OFF"}</button>
+                </div>
+                {form.metroPolyEnabled && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 10, color: "var(--outline)" }}>Capa 2:</span>
+                    {[2,3,4,5,6,7].map(n => (
+                      <button key={n} onClick={() => set("metroPolyNum", n)} className="hl"
+                        style={{
+                          width: 34, height: 34, borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer",
+                          border: form.metroPolyNum === n ? "1px solid var(--purple)" : "1px solid var(--outline-v)",
+                          background: form.metroPolyNum === n ? "rgba(168,85,247,0.2)" : "var(--glass)",
+                          color: form.metroPolyNum === n ? "var(--purple)" : "var(--on-sv)",
+                        }}>{n}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Gap */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <button onClick={() => set("metroGapEnabled", !form.metroGapEnabled)} className="hl"
+                    style={{
+                      padding: "5px 12px", borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                      border: form.metroGapEnabled ? "1px solid var(--amber)" : "1px solid var(--outline-v)",
+                      background: form.metroGapEnabled ? "rgba(255,191,0,0.12)" : "var(--glass)",
+                      color: form.metroGapEnabled ? "var(--amber)" : "var(--on-sv)",
+                    }}>GAP CLICK {form.metroGapEnabled ? "ON" : "OFF"}</button>
+                </div>
+                {form.metroGapEnabled && (
+                  <div style={{ display: "flex", gap: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 10, color: "var(--outline)" }}>PLAY</span>
+                      <Input type="number" value={form.metroGapPlay} onChange={e => set("metroGapPlay", clamp(+e.target.value, 1, 8))} min={1} max={8} style={{ width: 56 }} />
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 10, color: "var(--outline)" }}>MUTE</span>
+                      <Input type="number" value={form.metroGapSilence} onChange={e => set("metroGapSilence", clamp(+e.target.value, 1, 8))} min={1} max={8} style={{ width: 56 }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <Field label="IMAGEN / PARTITURA (max 2MB)">
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {form.image && (
               <img src={form.image} alt="partitura" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, border: "1px solid var(--outline-v)" }} />
@@ -431,9 +549,46 @@ function FillCard({ fill, onEdit, onDelete, onPracticed }) {
 
 /* ─── Fill Form ─── */
 function FillForm({ initial, onSave, onClose }) {
-  const [form, setForm] = useState({ name: "", notes: "", type: "fill", ...initial });
+  const [form, setForm] = useState({ name: "", notes: "", type: "fill", mediaUrl: null, mediaMime: null, ...initial });
+  const [fileStatus, setFileStatus] = useState(null); // null | "uploading" | "done" | "error"
+  const [pendingFile, setPendingFile] = useState(null); // File object to upload on save
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const handleSubmit = () => { if (!form.name.trim()) return; onSave(form); onClose(); };
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingFile(file);
+    setFileStatus("pending");
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) return;
+    let mediaUrl = form.mediaUrl;
+    let mediaMime = form.mediaMime;
+
+    if (pendingFile) {
+      setFileStatus("uploading");
+      // Use a temp id if new, or existing id
+      const fillId = form.id || uid();
+      const result = await uploadFillMedia(fillId, pendingFile);
+      if (result) {
+        mediaUrl = result.publicUrl;
+        mediaMime = result.mimeType;
+        setFileStatus("done");
+      } else {
+        setFileStatus("error");
+        // continue with save even if upload failed
+      }
+      onSave({ ...form, id: fillId, mediaUrl, mediaMime });
+    } else {
+      onSave(form);
+    }
+    onClose();
+  };
+
+  const mediaIsImage = form.mediaUrl && (form.mediaMime || "").startsWith("image/");
+  const mediaIsVideo = form.mediaUrl && (form.mediaMime || "").startsWith("video/");
+  const mediaIsAudio = form.mediaUrl && (form.mediaMime || "").startsWith("audio/");
 
   return (
     <Modal onClose={onClose}>
@@ -470,8 +625,46 @@ function FillForm({ initial, onSave, onClose }) {
         <Field label="NOTAS">
           <Textarea value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Descripción, ritmo, tips..." />
         </Field>
-        <button onClick={handleSubmit} className="hl" style={{ width: "100%", padding: 14, borderRadius: 12, background: "var(--amber)", color: "var(--on-amber)", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-          {initial?.id ? "GUARDAR" : "CREAR"}
+
+        {/* Media upload */}
+        <Field label="MEDIA (IMAGEN / AUDIO / VIDEO)">
+          {/* Preview existing */}
+          {form.mediaUrl && !pendingFile && (
+            <div style={{ marginBottom: 10, position: "relative" }}>
+              {mediaIsImage && <img src={form.mediaUrl} alt="media" style={{ width: "100%", maxHeight: 140, objectFit: "cover", borderRadius: 8, border: "1px solid var(--outline-v)" }} />}
+              {mediaIsAudio && <audio controls src={form.mediaUrl} style={{ width: "100%", borderRadius: 8 }} />}
+              {mediaIsVideo && <video controls src={form.mediaUrl} style={{ width: "100%", maxHeight: 140, borderRadius: 8 }} />}
+              <button onClick={() => { set("mediaUrl", null); set("mediaMime", null); }}
+                style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: 6, color: "#fff", cursor: "pointer", padding: "2px 6px", fontSize: 11 }}>
+                ✕
+              </button>
+            </div>
+          )}
+          {pendingFile && (
+            <p style={{ margin: "0 0 8px", fontSize: 11, color: "var(--amber)" }}>
+              {pendingFile.name} — se subirá al guardar
+            </p>
+          )}
+          <label style={{
+            display: "block", padding: "10px 14px", borderRadius: 10,
+            border: "1px dashed var(--outline-v)", cursor: "pointer",
+            background: "var(--s-high)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <MI style={{ color: "var(--outline)" }}>perm_media</MI>
+              <span style={{ fontSize: 12, color: "var(--on-sv)" }}>
+                {form.mediaUrl || pendingFile ? "Cambiar archivo" : "Seleccionar archivo"}
+              </span>
+            </div>
+            <input type="file" accept="image/*,audio/*,video/*" onChange={handleFile} style={{ display: "none" }} />
+          </label>
+          {fileStatus === "uploading" && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--outline)" }}>Subiendo...</p>}
+          {fileStatus === "done"      && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--green)" }}>✓ Subido a la nube</p>}
+          {fileStatus === "error"     && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--red)" }}>Error al subir (verifica el bucket fill-media)</p>}
+        </Field>
+
+        <button onClick={handleSubmit} disabled={fileStatus === "uploading"} className="hl" style={{ width: "100%", padding: 14, borderRadius: 12, background: "var(--amber)", color: "var(--on-amber)", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: fileStatus === "uploading" ? 0.6 : 1 }}>
+          {fileStatus === "uploading" ? "SUBIENDO..." : initial?.id ? "GUARDAR" : "CREAR"}
         </button>
       </div>
     </Modal>
@@ -480,47 +673,56 @@ function FillForm({ initial, onSave, onClose }) {
 
 /* ─── Song Form ─── */
 function SongForm({ initial, onSave, onClose }) {
-  const [form, setForm] = useState({ name: "", artist: "", bpm: "", notes: "", fileData: null, hasFile: false, fileType: "", ...initial });
-  const [fileStatus, setFileStatus] = useState(null); // null | "storing" | "cached" | "too-large"
+  const [form, setForm] = useState({ name: "", artist: "", bpm: "", notes: "", mediaUrl: null, mediaMime: null, hasFile: false, ...initial });
+  const [fileStatus, setFileStatus] = useState(null); // null | "pending" | "uploading" | "done" | "error"
+  const [pendingFile, setPendingFile] = useState(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const isAudio = file.type.startsWith("audio/");
-    const isSmall = file.size < 3 * 1024 * 1024;
-
-    set("fileType", file.type);
-
-    if (isAudio && isSmall) {
-      setFileStatus("storing");
-      const reader = new FileReader();
-      reader.onload = ev => {
-        set("fileData", ev.target.result);
-        set("hasFile", true);
-        setFileStatus("stored");
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // Large or video: cache as object URL
-      const tempId = form.id || uid();
-      const url = URL.createObjectURL(file);
-      songFileCache.set(tempId, { url });
-      set("fileData", null);
-      set("hasFile", true);
-      set("_tempCacheId", tempId);
-      setFileStatus("cached");
-    }
+    setPendingFile(file);
+    setFileStatus("pending");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name.trim()) return;
-    onSave({
-      ...form,
-      bpm: form.bpm ? parseInt(form.bpm) : null,
-    });
+    let mediaUrl = form.mediaUrl;
+    let mediaMime = form.mediaMime;
+
+    if (pendingFile) {
+      setFileStatus("uploading");
+      const songId = form.id || uid();
+      const result = await uploadSongMedia(songId, pendingFile);
+      if (result) {
+        mediaUrl = result.publicUrl;
+        mediaMime = result.mimeType;
+        setFileStatus("done");
+      } else {
+        setFileStatus("error");
+      }
+      onSave({
+        ...form,
+        id: songId,
+        mediaUrl,
+        mediaMime,
+        hasFile: !!(mediaUrl),
+        // strip any old local data
+        fileData: null,
+        _tempCacheId: undefined,
+        bpm: form.bpm ? parseInt(form.bpm) : null,
+      });
+    } else {
+      onSave({
+        ...form,
+        bpm: form.bpm ? parseInt(form.bpm) : null,
+      });
+    }
     onClose();
   };
+
+  const mediaIsAudio = (form.mediaMime || "").startsWith("audio/") || (!form.mediaMime && form.mediaUrl);
+  const mediaIsVideo = (form.mediaMime || "").startsWith("video/");
 
   return (
     <Modal onClose={onClose}>
@@ -544,6 +746,23 @@ function SongForm({ initial, onSave, onClose }) {
           <Textarea value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Letra, estructura, secciones difíciles..." />
         </Field>
         <Field label="ARCHIVO (AUDIO/VIDEO)">
+          {/* Preview existing cloud media */}
+          {form.mediaUrl && !pendingFile && (
+            <div style={{ marginBottom: 10, position: "relative" }}>
+              {mediaIsVideo
+                ? <video controls src={form.mediaUrl} style={{ width: "100%", maxHeight: 120, borderRadius: 8 }} />
+                : <audio controls src={form.mediaUrl} style={{ width: "100%", borderRadius: 8 }} />}
+              <button onClick={() => { set("mediaUrl", null); set("mediaMime", null); set("hasFile", false); }}
+                style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: 6, color: "#fff", cursor: "pointer", padding: "2px 6px", fontSize: 11 }}>
+                ✕
+              </button>
+            </div>
+          )}
+          {pendingFile && (
+            <p style={{ margin: "0 0 8px", fontSize: 11, color: "var(--amber)" }}>
+              {pendingFile.name} — se subirá a la nube al guardar
+            </p>
+          )}
           <label style={{
             display: "block", padding: "12px 16px", borderRadius: 10,
             border: "1px dashed var(--outline-v)", cursor: "pointer",
@@ -553,21 +772,21 @@ function SongForm({ initial, onSave, onClose }) {
               <MI style={{ color: "var(--outline)" }}>audio_file</MI>
               <div>
                 <p style={{ margin: 0, fontSize: 12, color: "var(--on-sv)" }}>
-                  {form.hasFile ? "Archivo cargado ✓" : "Seleccionar archivo"}
+                  {form.hasFile && !pendingFile ? "Archivo en la nube ✓" : pendingFile ? "Nuevo archivo seleccionado" : "Seleccionar archivo"}
                 </p>
                 <p style={{ margin: "2px 0 0", fontSize: 10, color: "var(--outline)" }}>
-                  Audio &lt;3MB: guardado permanente. Audio/video más grande: solo en sesión.
+                  Sube audio o video directamente a Supabase Storage
                 </p>
               </div>
             </div>
             <input type="file" accept="audio/*,video/*" onChange={handleFile} style={{ display: "none" }} />
           </label>
-          {fileStatus === "stored" && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--green)" }}>✓ Guardado en almacenamiento local</p>}
-          {fileStatus === "cached" && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--amber)" }}>⚠ Solo disponible en esta sesión (archivo grande/video)</p>}
-          {fileStatus === "storing" && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--outline)" }}>Cargando...</p>}
+          {fileStatus === "uploading" && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--outline)" }}>Subiendo...</p>}
+          {fileStatus === "done"      && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--green)" }}>✓ Guardado en la nube</p>}
+          {fileStatus === "error"     && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--red)" }}>Error al subir (verifica el bucket song-media)</p>}
         </Field>
-        <button onClick={handleSubmit} className="hl" style={{ width: "100%", padding: 14, borderRadius: 12, background: "var(--amber)", color: "var(--on-amber)", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-          {initial?.id ? "GUARDAR CAMBIOS" : "CREAR CANCIÓN"}
+        <button onClick={handleSubmit} disabled={fileStatus === "uploading"} className="hl" style={{ width: "100%", padding: 14, borderRadius: 12, background: "var(--amber)", color: "var(--on-amber)", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: fileStatus === "uploading" ? 0.6 : 1 }}>
+          {fileStatus === "uploading" ? "SUBIENDO..." : initial?.id ? "GUARDAR CAMBIOS" : "CREAR CANCIÓN"}
         </button>
       </div>
     </Modal>
@@ -577,7 +796,7 @@ function SongForm({ initial, onSave, onClose }) {
 /* ─── Song Card ─── */
 function SongCard({ song, onPlay, onEdit, onDelete }) {
   const [confirmDel, setConfirmDel] = useState(false);
-  const hasFile = !!(song.fileData || songFileCache.has(song.id) || song.hasFile);
+  const hasFile = !!(song.mediaUrl || song.fileData || songFileCache.has(song.id) || song.hasFile);
 
   return (
     <div style={{
@@ -732,19 +951,9 @@ export default function Vault({ data, setData, showToast }) {
     const existing = songs.find(s => s.id === form.id);
     let newSongs;
     if (existing) {
-      // If _tempCacheId differs from id, remap cache
-      if (form._tempCacheId && form._tempCacheId !== existing.id) {
-        const cached = songFileCache.get(form._tempCacheId);
-        if (cached) { songFileCache.set(existing.id, cached); songFileCache.delete(form._tempCacheId); }
-      }
       newSongs = songs.map(s => s.id === form.id ? { ...s, ...form, _tempCacheId: undefined } : s);
     } else {
-      const newId = uid();
-      // Remap cache if temp id used
-      if (form._tempCacheId) {
-        const cached = songFileCache.get(form._tempCacheId);
-        if (cached) { songFileCache.set(newId, cached); songFileCache.delete(form._tempCacheId); }
-      }
+      const newId = form.id || uid();
       newSongs = [...songs, { ...form, id: newId, _tempCacheId: undefined }];
     }
     save({ ...data, songs: newSongs });
@@ -758,13 +967,20 @@ export default function Vault({ data, setData, showToast }) {
   };
 
   const openSongPlayer = (song) => {
-    let playUrl = song.fileData || null;
+    // Prefer cloud mediaUrl, then local fileData, then in-memory cache
+    let playUrl = song.mediaUrl || song.fileData || null;
     if (!playUrl) {
       const cached = songFileCache.get(song.id);
       if (cached) playUrl = cached.url;
     }
     setActiveSong({ ...song, playUrl });
     setSongPlayerOpen(true);
+  };
+
+  const handleSongSpeedChange = (songId, rate) => {
+    if (!songId) return;
+    const newSongs = songs.map(s => s.id === songId ? { ...s, lastSpeed: rate } : s);
+    save({ ...data, songs: newSongs });
   };
 
   /* ─── sub tab bar ─── */
@@ -961,6 +1177,7 @@ export default function Vault({ data, setData, showToast }) {
         <SongPlayer
           song={activeSong}
           onClose={() => { setSongPlayerOpen(false); setActiveSong(null); }}
+          onSpeedChange={handleSongSpeedChange}
         />
       )}
     </div>
