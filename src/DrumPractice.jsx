@@ -181,17 +181,20 @@ const NAV = [
 function NavBar({ tab, setTab }) {
   return (
     <nav style={{
-      flexShrink: 0,
+      position: "fixed",
+      bottom: 0,
+      left: "50%",
+      transform: "translateX(-50%)",
+      width: "100%",
+      maxWidth: "min(100vw, 820px)",
       minHeight: 64,
-      height: "var(--nav-h)",
       paddingBottom: "env(safe-area-inset-bottom, 0px)",
-      background: "rgba(8,8,12,0.92)",
+      background: "rgba(8,8,12,0.95)",
       backdropFilter: "blur(20px)",
       WebkitBackdropFilter: "blur(20px)",
-      borderTop: "1px solid rgba(255,255,255,0.04)",
+      borderTop: "1px solid rgba(255,255,255,0.06)",
       display: "flex",
-      alignItems: "flex-start",
-      paddingTop: 0,
+      alignItems: "center",
       zIndex: 150,
     }}>
       {NAV.map(n => {
