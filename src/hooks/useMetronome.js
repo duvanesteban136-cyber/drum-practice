@@ -97,7 +97,7 @@ export function useMetronome() {
     randomMute:0,
     trainerEnabled:false, trainerTarget:140, trainerType:"ramp",
     trainerStairBars:8, trainerStairStep:2,
-    trainerRampBars:4, trainerRampStep:2,
+    trainerRampSeconds:60,
     countIn:false,
     grid: makeGrid(4, 1),
   });
@@ -131,17 +131,20 @@ export function useMetronome() {
 
       /* ── Speed trainer ── */
       if (cc.trainerEnabled) {
-        if (cc.trainerType === "ramp") {
-          // Step-ramp: bump by trainerRampStep every trainerRampBars bars (at bar start)
-          if (pulse === 0 && bar > 0 && bar % (cc.trainerRampBars || 4) === 0) {
-            const step = cc.trainerRampStep || 2;
-            const dir  = cc.trainerTarget >= cc.bpm ? 1 : -1;
-            bpmRampRef.current = clamp(
-              bpmRampRef.current + dir * step,
-              Math.min(cc.bpm, cc.trainerTarget),
-              Math.max(cc.bpm, cc.trainerTarget),
-            );
-          }
+        if (cc.trainerType === "ramp" && pulse === 0) {
+          // Smooth ramp: each bar, advance BPM by exactly the fraction needed
+          // to reach trainerTarget in trainerRampSeconds total.
+          // secondsPerBar = (60 / liveBpm) * timeNum
+          const liveBpm0 = bpmRampRef.current;
+          const secsPerBar = (60 / Math.max(liveBpm0, 20)) * (cc.timeNum || 4);
+          const totalBars  = Math.max(1, (cc.trainerRampSeconds || 60) / secsPerBar);
+          const bpmRange   = cc.trainerTarget - cc.bpm;
+          const stepPerBar = bpmRange / totalBars;
+          bpmRampRef.current = clamp(
+            bpmRampRef.current + stepPerBar,
+            Math.min(cc.bpm, cc.trainerTarget),
+            Math.max(cc.bpm, cc.trainerTarget),
+          );
         } else if (cc.trainerType === "stairs" && pulse === 0 && bar > 0 && bar % cc.trainerStairBars === 0) {
           bpmRampRef.current = clamp(bpmRampRef.current + cc.trainerStairStep, 20, 400);
         }

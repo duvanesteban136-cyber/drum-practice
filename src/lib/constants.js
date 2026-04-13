@@ -50,8 +50,9 @@ export const DEFAULT_DATA = {
   fills:         [],
   songs:         [],
   schedule:      { 0:["cat-1"],1:["cat-3"],2:["cat-2"],3:["cat-1"],4:["cat-4","cat-5"],5:["cat-6"],6:[] },
-  routineBlocks: [],            // timeline blocks [{id,type,exerciseId?,bars?,seconds?,label?}]
-  metroPresets:  [],            // saved metronome configurations
+  routines:      [],             // [{id, name, blocks:[{id,type,refId?,bars?,seconds?,label?}]}]
+  routineBlocks: [],             // legacy — migrado automáticamente al abrir
+  metroPresets:  [],
   settings: {
     restBetweenExercises: 10,
     warmUpBars: 4,

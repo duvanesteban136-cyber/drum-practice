@@ -586,16 +586,28 @@ export default function FreeMetronome({ metro }) {
               </div>
             )}
             {cfg.trainerType === "ramp" && (
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ ...sheetLabel, marginBottom: 0 }}>CADA</span>
-                  <Stepper value={cfg.trainerRampBars} onChange={(v) => update({ trainerRampBars: v })} min={1} max={32} />
-                  <span style={{ ...sheetLabel, marginBottom: 0 }}>compases</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ ...sheetLabel, marginBottom: 0 }}>DURACIÓN</span>
+                  <input
+                    type="number" min={5} max={3600}
+                    value={cfg.trainerRampSeconds}
+                    onChange={e => update({ trainerRampSeconds: Math.max(5, parseInt(e.target.value) || 60) })}
+                    style={{ width: 72, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: T.amber, fontSize: "1.1rem", fontWeight: 900, textAlign: "center", padding: "2px 4px", fontFamily: "inherit" }}
+                  />
+                  <span style={{ ...sheetLabel, marginBottom: 0 }}>segundos</span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ ...sheetLabel, marginBottom: 0 }}>+BPM</span>
-                  <Stepper value={cfg.trainerRampStep} onChange={(v) => update({ trainerRampStep: v })} min={1} max={20} />
-                </div>
+                {/* Live preview of step */}
+                {(() => {
+                  const secsPerBar = (60 / Math.max(cfg.bpm, 20)) * (cfg.timeNum || 4);
+                  const totalBars  = Math.max(1, (cfg.trainerRampSeconds || 60) / secsPerBar);
+                  const stepPerBar = ((cfg.trainerTarget - cfg.bpm) / totalBars).toFixed(2);
+                  return (
+                    <span style={{ fontSize: 10, color: T.text3, letterSpacing: "0.04em" }}>
+                      ≈ {stepPerBar} BPM/compás · {Math.ceil(totalBars)} compases al BPM actual
+                    </span>
+                  );
+                })()}
               </div>
             )}
           </div>
