@@ -102,18 +102,22 @@ function CheckmarkAnim() {
 /* ─── Phase constants ─── */
 const PHASES = ["ready", "warmup", "exercise", "rest", "done"];
 
-export default function PracticeSession({ data, categoryId, metro, onComplete, onExit }) {
+export default function PracticeSession({ data, categoryId, routineExercises, metro, onComplete, onExit }) {
   const {
     isPlaying, beat, cfg, update,
     start, stop, tapTempo, pulsesPerBar,
   } = metro;
 
   /* ── filter + sort exercises ── */
-  const exercises = (data?.exercises || [])
-    .filter((ex) => ex.categoryId === categoryId)
-    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  const exercises = routineExercises
+    ? routineExercises
+    : (data?.exercises || [])
+        .filter((ex) => ex.categoryId === categoryId)
+        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
-  const category = (data?.categories || []).find((c) => c.id === categoryId);
+  const category = categoryId === "routine"
+    ? { name: "Rutina" }
+    : (data?.categories || []).find((c) => c.id === categoryId);
   const settings = data?.settings || { restBetweenExercises: 10, warmUpBars: 4 };
 
   /* ── session state ── */

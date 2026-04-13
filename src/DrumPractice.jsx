@@ -918,7 +918,19 @@ export default function DrumPracticeApp() {
             setData={setDataAndSync}
             logs={logs}
             showToast={showToast}
-            onStartRoutine={() => setPractice("routine")}
+            onStartRoutine={() => {
+              // Build exercise list from active routine blocks
+              const routines = data.routines || [];
+              const activeId = data._activeRoutineId || routines[0]?.id;
+              const activeRoutine = routines.find(r => r.id === activeId) || routines[0];
+              const blocks = activeRoutine?.blocks || [];
+              const allExercises = data.exercises || [];
+              const routineExercises = blocks
+                .filter(b => b.type === "exercise")
+                .map(b => allExercises.find(e => e.id === (b.refId || b.exerciseId)))
+                .filter(Boolean);
+              setPractice({ type: "routine", exercises: routineExercises });
+            }}
           />
         )}
         {tab === "vault" && (
@@ -942,7 +954,8 @@ export default function DrumPracticeApp() {
         <div style={{ position: "absolute", inset: 0, zIndex: 200 }}>
           <PracticeSession
             data={data}
-            categoryId={practiceSession}
+            categoryId={practiceSession.type === "routine" ? "routine" : practiceSession}
+            routineExercises={practiceSession.type === "routine" ? practiceSession.exercises : undefined}
             metro={metro}
             onComplete={completePractice}
             onExit={() => setPractice(null)}
