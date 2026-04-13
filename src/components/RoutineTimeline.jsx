@@ -132,7 +132,9 @@ function AddMenu({ exercises, fills, songs, onAdd, onClose }) {
   /* ── type picker ── */
   if (step === "type") {
     return (
-      <div style={{
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
         background: "rgba(30,30,40,0.97)", border: "1px solid var(--glass-border)",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderRadius: 10, padding: "6px 0", minWidth: 160,
@@ -170,7 +172,9 @@ function AddMenu({ exercises, fills, songs, onAdd, onClose }) {
     "Sin canciones en el Vault";
 
   return (
-    <div style={{
+    <div
+      onClick={e => e.stopPropagation()}
+      style={{
       background: "rgba(30,30,40,0.97)", border: "1px solid var(--glass-border)",
       backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
       borderRadius: 10, padding: 8, minWidth: 230, maxHeight: 280,
