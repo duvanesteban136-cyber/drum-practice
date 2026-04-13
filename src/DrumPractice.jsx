@@ -182,8 +182,7 @@ function NavBar({ tab, setTab }) {
   return (
     <nav style={{
       flexShrink: 0,
-      height: "var(--nav-h)",
-      paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      height: 64,
       background: "rgba(8,8,12,0.92)",
       backdropFilter: "blur(20px)",
       WebkitBackdropFilter: "blur(20px)",
@@ -609,18 +608,9 @@ export default function DrumPracticeApp() {
   const { toast, show: showToast } = useToast();
 
   /* ── Auth listener + cloud sync on login ── */
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthReady(true);
-      if (session?.user) syncFromCloud();
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) syncFromCloud();
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+
+  // Use a ref so polling/visibility effects always call the latest version
+  const syncFromCloudRef = useRef(null);
 
   const syncFromCloud = async () => {
     const [cloudData, cloudLogs] = await Promise.all([cloudLoadData(), cloudLoadLogs()]);
@@ -634,12 +624,28 @@ export default function DrumPracticeApp() {
     }
   };
 
+  // Keep the ref up to date on every render
+  syncFromCloudRef.current = syncFromCloud;
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthReady(true);
+      if (session?.user) syncFromCloudRef.current();
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) syncFromCloudRef.current();
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   /* ── Sync when tab regains focus ── */
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) syncFromCloud();
+          if (user) syncFromCloudRef.current();
         });
       }
     };
@@ -651,7 +657,7 @@ export default function DrumPracticeApp() {
   useEffect(() => {
     const interval = setInterval(() => {
       supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) syncFromCloud();
+        if (user) syncFromCloudRef.current();
       });
     }, 30000);
     return () => clearInterval(interval);
