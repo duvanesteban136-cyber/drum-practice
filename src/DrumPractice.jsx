@@ -725,10 +725,27 @@ export default function DrumPracticeApp() {
       if (cloudData) {
         const exCount = (cloudData.exercises || []).length;
         addSyncLog(`cloud data OK — ${exCount} ejercicios`);
-        setData(cloudData);
-        saveData(cloudData);
+
+        // ── Merge by timestamp: only apply cloud data if it's newer than local ──
+        const localData = loadData();
+        const localTs = localData.updatedAt || 0;
+        const cloudTs = cloudData.updatedAt || 0;
+
+        if (cloudTs > localTs) {
+          // Cloud is newer → apply cloud
+          addSyncLog(`cloud más nuevo (${cloudTs} > ${localTs}) — aplicando`);
+          setData(cloudData);
+          saveData(cloudData);
+        } else {
+          // Local is newer → push local to cloud to keep it in sync
+          addSyncLog(`local más nuevo (${localTs} >= ${cloudTs}) — manteniendo local`);
+          cloudSaveData(localData);
+        }
       } else {
         addSyncLog("cloud data: null (nada guardado aún)");
+        // Push local data to cloud for first-time sync
+        const localData = loadData();
+        if (localData.updatedAt) cloudSaveData(localData);
       }
 
       if (cloudLogs && cloudLogs.length > 0) {
@@ -842,9 +859,10 @@ export default function DrumPracticeApp() {
 
   /* ─── setData wrapper that also syncs to cloud ─── */
   const setDataAndSync = (nd) => {
-    setData(nd);
-    saveData(nd);
-    cloudSaveData(nd);
+    const stamped = { ...nd, updatedAt: Date.now() };
+    setData(stamped);
+    saveData(stamped);
+    cloudSaveData(stamped);
   };
 
   const aurora = AURORA_MAP[tab] || AURORA_MAP.home;
