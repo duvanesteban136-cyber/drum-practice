@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { saveData } from "../lib/storage.js";
 import { uid, fmtDur, clamp, getToday, SOUNDS, BEAT_LEVELS, DEFAULT_CATEGORIES } from "../lib/constants.js";
+import { uploadExerciseImage } from "../lib/supabase.js";
 import SongPlayer from "./SongPlayer.jsx";
 
 /* ─── Module-level song file cache (object URLs for large files) ─── */
@@ -135,7 +136,8 @@ const EMPTY_EX = {
 /* ─── Exercise Form ─── */
 function ExForm({ initial, categories, onSave, onClose }) {
   const [form, setForm] = useState({ ...EMPTY_EX, ...initial });
-  const [imgWarn, setImgWarn] = useState(false);
+  const [imgWarn, setImgWarn]       = useState(false);
+  const [imgUploading, setImgUploading] = useState(false);
   const fileRef = useRef(null);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -145,14 +147,30 @@ function ExForm({ initial, categories, onSave, onClose }) {
     if (!file) return;
     if (file.size > 200 * 1024) { setImgWarn(true); return; }
     setImgWarn(false);
+    // Read as base64 for preview — upload to Storage on submit
     const reader = new FileReader();
     reader.onload = ev => set("image", ev.target.result);
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name.trim()) return;
-    onSave(form);
+    let finalForm = { ...form };
+
+    // If image is a fresh base64 blob, upload it to Supabase Storage
+    if (form.image && form.image.startsWith("data:")) {
+      setImgUploading(true);
+      const exId = form.id || uid();
+      const url = await uploadExerciseImage(exId, form.image);
+      setImgUploading(false);
+      if (url) {
+        // Replace base64 with public URL — syncs across all devices
+        finalForm = { ...finalForm, id: exId, image: url };
+      }
+      // If upload failed, keep base64 as fallback (works locally)
+    }
+
+    onSave(finalForm);
     onClose();
   };
 
@@ -284,15 +302,16 @@ function ExForm({ initial, categories, onSave, onClose }) {
 
         <button
           onClick={handleSubmit}
+          disabled={imgUploading}
           className="hl"
           style={{
             width: "100%", padding: "14px", borderRadius: 12,
             background: "var(--amber)", color: "var(--on-amber)",
-            border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer",
-            marginTop: 8,
+            border: "none", fontSize: 14, fontWeight: 700, cursor: imgUploading ? "default" : "pointer",
+            marginTop: 8, opacity: imgUploading ? 0.7 : 1,
           }}
         >
-          {initial?.id ? "GUARDAR CAMBIOS" : "CREAR EJERCICIO"}
+          {imgUploading ? "Subiendo imagen..." : initial?.id ? "GUARDAR CAMBIOS" : "CREAR EJERCICIO"}
         </button>
       </div>
     </Modal>
