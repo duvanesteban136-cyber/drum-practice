@@ -875,6 +875,7 @@ export default function DrumPracticeApp() {
         position: "relative", zIndex: 1,
         WebkitOverflowScrolling: "touch",
         display: "flex", flexDirection: "column",
+        background: "#08080C",
       }}>
         {tab === "home" && (
           <Home
