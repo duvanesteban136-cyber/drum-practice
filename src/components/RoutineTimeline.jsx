@@ -287,7 +287,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
   const rowRefs = useRef([]);
   const draggingIdxRef = useRef(null);
 
-  const activeRoutine = routines.find(r => r.id === activeRoutineId) || routines[0];
+  const activeRoutine = routines.find(r => r.id === activeRoutineId) || routines[0] || { id: "", name: "Mi rutina", blocks: [] };
   const blocks = activeRoutine?.blocks || [];
 
   const saveRoutines = useCallback((newRoutines) => {
@@ -404,7 +404,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
       return acc + (b.bars || 4) * 4 * (60 / bpm);
     }
     if (b.type === "exercise") {
-      const ex = exList.find(e => e.id === b.refId);
+      const ex = exList.find(e => e.id === (b.refId || b.exerciseId));
       return acc + (ex?.durationSeconds || 60);
     }
     return acc;
@@ -416,7 +416,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
   const renderBlockContent = (block, idx) => {
 
     if (block.type === "exercise") {
-      const ex = exList.find(e => e.id === block.refId);
+      const ex = exList.find(e => e.id === (block.refId || block.exerciseId));
       const orderNum = blocks.slice(0, idx + 1).filter(b => b.type === "exercise").length;
       return (
         <div style={{ flex: 1, overflow: "hidden" }}>

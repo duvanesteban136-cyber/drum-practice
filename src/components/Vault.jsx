@@ -138,7 +138,7 @@ const EMPTY_EX = {
 };
 
 /* ─── Exercise Form ─── */
-function ExForm({ initial, categories, onSave, onClose }) {
+function ExForm({ initial, routines, onSave, onClose }) {
   const [form, setForm] = useState({ ...EMPTY_EX, ...initial });
   const [imgWarn, setImgWarn]       = useState(false);
   const [imgUploading, setImgUploading] = useState(false);
@@ -186,17 +186,18 @@ function ExForm({ initial, categories, onSave, onClose }) {
           <IBtn onClick={onClose}><MI>close</MI></IBtn>
         </div>
 
-        <Field label="CATEGORÍA">
+        <Field label="RUTINA">
           <select
-            value={form.categoryId}
-            onChange={e => set("categoryId", e.target.value)}
+            value={form.routineId || ""}
+            onChange={e => set("routineId", e.target.value || null)}
             style={{
               width: "100%", padding: "10px 12px", borderRadius: 10,
               border: "1px solid var(--outline-v)", background: "var(--s-mid)",
               color: "var(--on-s)", fontSize: 14, outline: "none",
             }}
           >
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <option value="">Sin rutina</option>
+            {routines.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </Field>
 
@@ -306,88 +307,84 @@ function ExForm({ initial, categories, onSave, onClose }) {
             <MI style={{ fontSize: 16 }}>{form._metroOpen ? "expand_less" : "expand_more"}</MI>
           </button>
           {form._metroOpen && (
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 14, padding: "12px 14px", background: "rgba(6,182,212,0.03)", borderRadius: 10, border: "1px solid rgba(6,182,212,0.12)" }}>
-              {/* Time signature */}
-              <div>
-                <label style={{ fontSize: 10, color: "var(--outline)", display: "block", marginBottom: 6 }}>MÉTRICA</label>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <select value={form.metroTimeNum} onChange={e => set("metroTimeNum", +e.target.value)}
-                    style={{ width: 64, padding: "8px 8px", borderRadius: 8, border: "1px solid var(--outline-v)", background: "var(--s-mid)", color: "var(--on-s)", fontSize: 15, fontWeight: 700, textAlign: "center" }}>
-                    {[2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                  <span style={{ color: "var(--outline)", fontSize: 22, fontWeight: 300 }}>/</span>
-                  <select value={form.metroTimeDen} onChange={e => set("metroTimeDen", +e.target.value)}
-                    style={{ width: 64, padding: "8px 8px", borderRadius: 8, border: "1px solid var(--outline-v)", background: "var(--s-mid)", color: "var(--on-s)", fontSize: 15, fontWeight: 700, textAlign: "center" }}>
-                    {[2,4,8,16].map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10, padding: "10px 12px", background: "rgba(6,182,212,0.03)", borderRadius: 10, border: "1px solid rgba(6,182,212,0.12)" }}>
+              {/* Time signature + Subdivision row */}
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ flexShrink: 0 }}>
+                  <label style={{ fontSize: 9, color: "var(--outline)", display: "block", marginBottom: 4 }}>MÉTRICA</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <select value={form.metroTimeNum} onChange={e => set("metroTimeNum", +e.target.value)}
+                      style={{ width: 50, padding: "6px 4px", borderRadius: 8, border: "1px solid var(--outline-v)", background: "var(--s-mid)", color: "var(--on-s)", fontSize: 14, fontWeight: 700, textAlign: "center" }}>
+                      {[2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                    <span style={{ color: "var(--outline)", fontSize: 18, fontWeight: 300 }}>/</span>
+                    <select value={form.metroTimeDen} onChange={e => set("metroTimeDen", +e.target.value)}
+                      style={{ width: 50, padding: "6px 4px", borderRadius: 8, border: "1px solid var(--outline-v)", background: "var(--s-mid)", color: "var(--on-s)", fontSize: 14, fontWeight: 700, textAlign: "center" }}>
+                      {[2,4,8,16].map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
                 </div>
-              </div>
-              {/* Subdivision */}
-              <div>
-                <label style={{ fontSize: 10, color: "var(--outline)", display: "block", marginBottom: 6 }}>SUBDIVISIÓN</label>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {SUBDIVISIONS.map(s => (
-                    <button key={s.id} onClick={() => set("metroSubId", s.id)} className="hl"
-                      title={s.name}
-                      style={{
-                        padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
-                        border: form.metroSubId === s.id ? "1px solid var(--cyan)" : "1px solid var(--outline-v)",
-                        background: form.metroSubId === s.id ? "rgba(6,182,212,0.15)" : "var(--glass)",
-                        color: form.metroSubId === s.id ? "var(--cyan)" : "var(--on-sv)",
-                      }}>{s.label} <span style={{ fontSize: 9, opacity: 0.7 }}>{s.name}</span></button>
-                  ))}
-                </div>
-              </div>
-              {/* Polyrhythm */}
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <button onClick={() => set("metroPolyEnabled", !form.metroPolyEnabled)} className="hl"
-                    style={{
-                      padding: "5px 12px", borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: "pointer",
-                      border: form.metroPolyEnabled ? "1px solid var(--purple)" : "1px solid var(--outline-v)",
-                      background: form.metroPolyEnabled ? "rgba(168,85,247,0.15)" : "var(--glass)",
-                      color: form.metroPolyEnabled ? "var(--purple)" : "var(--on-sv)",
-                    }}>POLIRRITMO {form.metroPolyEnabled ? "ON" : "OFF"}</button>
-                </div>
-                {form.metroPolyEnabled && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 10, color: "var(--outline)" }}>Capa 2:</span>
-                    {[2,3,4,5,6,7].map(n => (
-                      <button key={n} onClick={() => set("metroPolyNum", n)} className="hl"
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 9, color: "var(--outline)", display: "block", marginBottom: 4 }}>SUBDIVISIÓN</label>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {SUBDIVISIONS.map(s => (
+                      <button key={s.id} onClick={() => set("metroSubId", s.id)} className="hl"
+                        title={s.name}
                         style={{
-                          width: 34, height: 34, borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer",
-                          border: form.metroPolyNum === n ? "1px solid var(--purple)" : "1px solid var(--outline-v)",
-                          background: form.metroPolyNum === n ? "rgba(168,85,247,0.2)" : "var(--glass)",
-                          color: form.metroPolyNum === n ? "var(--purple)" : "var(--on-sv)",
-                        }}>{n}</button>
+                          padding: "4px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                          border: form.metroSubId === s.id ? "1px solid var(--cyan)" : "1px solid var(--outline-v)",
+                          background: form.metroSubId === s.id ? "rgba(6,182,212,0.15)" : "var(--glass)",
+                          color: form.metroSubId === s.id ? "var(--cyan)" : "var(--on-sv)",
+                        }}>{s.label}</button>
                     ))}
                   </div>
-                )}
-              </div>
-              {/* Gap */}
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <button onClick={() => set("metroGapEnabled", !form.metroGapEnabled)} className="hl"
-                    style={{
-                      padding: "5px 12px", borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: "pointer",
-                      border: form.metroGapEnabled ? "1px solid var(--amber)" : "1px solid var(--outline-v)",
-                      background: form.metroGapEnabled ? "rgba(255,191,0,0.12)" : "var(--glass)",
-                      color: form.metroGapEnabled ? "var(--amber)" : "var(--on-sv)",
-                    }}>GAP CLICK {form.metroGapEnabled ? "ON" : "OFF"}</button>
                 </div>
-                {form.metroGapEnabled && (
-                  <div style={{ display: "flex", gap: 16 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 10, color: "var(--outline)" }}>PLAY</span>
-                      <Input type="number" value={form.metroGapPlay} onChange={e => set("metroGapPlay", clamp(+e.target.value, 1, 8))} min={1} max={8} style={{ width: 56 }} />
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 10, color: "var(--outline)" }}>MUTE</span>
-                      <Input type="number" value={form.metroGapSilence} onChange={e => set("metroGapSilence", clamp(+e.target.value, 1, 8))} min={1} max={8} style={{ width: 56 }} />
-                    </div>
-                  </div>
-                )}
               </div>
+              {/* Poly + Gap row */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => set("metroPolyEnabled", !form.metroPolyEnabled)} className="hl"
+                  style={{
+                    padding: "4px 10px", borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                    border: form.metroPolyEnabled ? "1px solid var(--purple)" : "1px solid var(--outline-v)",
+                    background: form.metroPolyEnabled ? "rgba(168,85,247,0.15)" : "var(--glass)",
+                    color: form.metroPolyEnabled ? "var(--purple)" : "var(--on-sv)",
+                  }}>POLY {form.metroPolyEnabled ? "ON" : "OFF"}</button>
+                <button onClick={() => set("metroGapEnabled", !form.metroGapEnabled)} className="hl"
+                  style={{
+                    padding: "4px 10px", borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                    border: form.metroGapEnabled ? "1px solid var(--amber)" : "1px solid var(--outline-v)",
+                    background: form.metroGapEnabled ? "rgba(255,191,0,0.12)" : "var(--glass)",
+                    color: form.metroGapEnabled ? "var(--amber)" : "var(--on-sv)",
+                  }}>GAP {form.metroGapEnabled ? "ON" : "OFF"}</button>
+              </div>
+              {/* Poly sub-controls */}
+              {form.metroPolyEnabled && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, color: "var(--outline)" }}>Capa 2:</span>
+                  {[2,3,4,5,6,7].map(n => (
+                    <button key={n} onClick={() => set("metroPolyNum", n)} className="hl"
+                      style={{
+                        width: 30, height: 30, borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: "pointer",
+                        border: form.metroPolyNum === n ? "1px solid var(--purple)" : "1px solid var(--outline-v)",
+                        background: form.metroPolyNum === n ? "rgba(168,85,247,0.2)" : "var(--glass)",
+                        color: form.metroPolyNum === n ? "var(--purple)" : "var(--on-sv)",
+                      }}>{n}</button>
+                  ))}
+                </div>
+              )}
+              {/* Gap sub-controls */}
+              {form.metroGapEnabled && (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 10, color: "var(--outline)" }}>PLAY</span>
+                    <Input type="number" value={form.metroGapPlay} onChange={e => set("metroGapPlay", clamp(+e.target.value, 1, 8))} min={1} max={8} style={{ width: 52 }} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 10, color: "var(--outline)" }}>MUTE</span>
+                    <Input type="number" value={form.metroGapSilence} onChange={e => set("metroGapSilence", clamp(+e.target.value, 1, 8))} min={1} max={8} style={{ width: 52 }} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -437,7 +434,7 @@ function ExForm({ initial, categories, onSave, onClose }) {
 /* ─── Exercise Card ─── */
 const EX_ICON_COLORS = ["#a855f7", "#06b6d4", "#22c55e", "#ffbf00", "#f43f5e", "#3b82f6"];
 
-function ExCard({ ex, category, onEdit, onDelete, index }) {
+function ExCard({ ex, routineName, onEdit, onDelete, onDuplicate, index }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const iconColor = EX_ICON_COLORS[index % EX_ICON_COLORS.length];
 
@@ -473,10 +470,11 @@ function ExCard({ ex, category, onEdit, onDelete, index }) {
                 <Badge color="var(--amber)">{ex.currentBPM || ex.bpm || 80} BPM</Badge>
               )}
               {ex.durationSeconds && <Badge color="var(--outline)">{fmtDur(ex.durationSeconds)}</Badge>}
-              {category && <Badge color={category.color || "var(--outline)"}>{category.name}</Badge>}
+              {routineName && <Badge color="var(--cyan)">{routineName}</Badge>}
             </div>
           </div>
           <div style={{ display: "flex", gap: 2, marginLeft: 8 }}>
+            <IBtn onClick={onDuplicate} title="Duplicar"><MI style={{ fontSize: 18 }}>content_copy</MI></IBtn>
             <IBtn onClick={onEdit} title="Editar"><MI style={{ fontSize: 18 }}>edit</MI></IBtn>
             {!confirmDel ? (
               <IBtn onClick={() => setConfirmDel(true)} title="Eliminar" style={{ color: "var(--red)" }}>
@@ -866,26 +864,23 @@ function FAB({ onClick, label }) {
 export default function Vault({ data, setData, showToast }) {
   const [subTab, setSubTab] = useState("exercises");
   const [search, setSearch] = useState("");
-  const [catFilter, setCatFilter] = useState("all");
   const [exForm, setExForm] = useState(null);       // null | {} | existing ex
   const [fillForm, setFillForm] = useState(null);
   const [songForm, setSongForm] = useState(null);
   const [activeSong, setActiveSong] = useState(null);   // song for SongPlayer
   const [songPlayerOpen, setSongPlayerOpen] = useState(false);
 
-  const cats = data.categories || DEFAULT_CATEGORIES;
   const exercises = data.exercises || [];
   const fills = data.fills || [];
   const songs = data.songs || [];
+  const routines = data.routines || [];
 
   const save = (nd) => { setData(nd); saveData(nd); };
 
   /* ─── exercises ─── */
-  const filteredExs = exercises.filter(ex => {
-    const matchCat = catFilter === "all" || ex.categoryId === catFilter;
-    const matchSearch = !search || ex.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const filteredExs = exercises.filter(ex =>
+    !search || ex.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const saveEx = (form) => {
     const existing = exercises.find(e => e.id === form.id);
@@ -904,19 +899,18 @@ export default function Vault({ data, setData, showToast }) {
     showToast && showToast("Ejercicio eliminado", "info");
   };
 
-  const bumpCatBpm = (catId) => {
-    const newExs = exercises.map(e =>
-      e.categoryId === catId
-        ? { ...e, bpm: clamp((e.bpm || 80) + 1, 20, 300), currentBPM: clamp((e.currentBPM || e.bpm || 80) + 1, 20, 300) }
-        : e
-    );
-    save({ ...data, exercises: newExs });
-    showToast && showToast(`+1 BPM a ${cats.find(c => c.id === catId)?.name || catId}`);
+  const duplicateEx = (ex) => {
+    const newEx = { ...ex, id: uid(), name: `${ex.name} (copia)`, currentBPM: ex.currentBPM || ex.bpm || 80 };
+    save({ ...data, exercises: [...exercises, newEx] });
+    showToast && showToast("Ejercicio duplicado");
   };
 
-  /* ─── fills ─── */
+  /* ─── fills / grooves ─── */
   const filteredFills = fills.filter(f =>
-    !search || f.name.toLowerCase().includes(search.toLowerCase())
+    f.type !== "groove" && (!search || f.name.toLowerCase().includes(search.toLowerCase()))
+  );
+  const filteredGrooves = fills.filter(f =>
+    f.type === "groove" && (!search || f.name.toLowerCase().includes(search.toLowerCase()))
   );
 
   const saveFill = (form) => {
@@ -987,6 +981,7 @@ export default function Vault({ data, setData, showToast }) {
   const SUBTABS = [
     { id: "exercises", label: "Ejercicios" },
     { id: "fills",     label: "Fills" },
+    { id: "grooves",   label: "Grooves" },
     { id: "songs",     label: "Songs" },
   ];
 
@@ -1028,85 +1023,65 @@ export default function Vault({ data, setData, showToast }) {
         {/* ── EXERCISES ── */}
         {subTab === "exercises" && (
           <>
-            {/* Category filter pills */}
-            <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", overflowX: "auto", marginBottom: 12, paddingBottom: 4 }} className="no-sb">
-              <button
-                onClick={() => setCatFilter("all")}
-                className="hl"
-                style={{
-                  padding: "5px 12px", borderRadius: 20, flexShrink: 0,
-                  border: catFilter === "all" ? "1px solid var(--amber)" : "1px solid var(--outline-v)",
-                  background: catFilter === "all" ? "rgba(255,191,0,0.12)" : "transparent",
-                  color: catFilter === "all" ? "var(--amber)" : "var(--outline)",
-                  fontSize: 10, fontWeight: 700, cursor: "pointer",
-                }}
-              >
-                TODOS
-              </button>
-              {cats.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => setCatFilter(catFilter === c.id ? "all" : c.id)}
-                  className="hl"
-                  style={{
-                    padding: "5px 12px", borderRadius: 20, flexShrink: 0,
-                    border: catFilter === c.id ? `1px solid ${c.color}` : "1px solid var(--outline-v)",
-                    background: catFilter === c.id ? `${c.color}20` : "transparent",
-                    color: catFilter === c.id ? c.color : "var(--outline)",
-                    fontSize: 10, fontWeight: 700, cursor: "pointer",
-                  }}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-
-            {/* +1 BPM for selected category */}
-            {catFilter !== "all" && (
-              <button
-                onClick={() => bumpCatBpm(catFilter)}
-                className="hl"
-                style={{
-                  width: "100%", padding: "8px", borderRadius: 10, marginBottom: 10,
-                  border: "1px solid var(--amber)", background: "rgba(255,191,0,0.06)",
-                  color: "var(--amber)", fontSize: 11, fontWeight: 700, cursor: "pointer",
-                }}
-              >
-                SUBIR BPM +1 ({cats.find(c => c.id === catFilter)?.name})
-              </button>
-            )}
-
             {filteredExs.length === 0 ? (
               <div style={{ textAlign: "center", padding: "40px 0", color: "var(--outline)" }}>
                 <MI style={{ fontSize: 40, display: "block", marginBottom: 10 }}>fitness_center</MI>
                 <p style={{ margin: 0, fontSize: 13 }}>Sin ejercicios</p>
               </div>
             ) : (
-              filteredExs.map((ex, idx) => (
-                <ExCard
-                  key={ex.id}
-                  ex={ex}
-                  index={idx}
-                  category={cats.find(c => c.id === ex.categoryId)}
-                  onEdit={() => setExForm(ex)}
-                  onDelete={() => deleteEx(ex.id)}
-                />
-              ))
+              filteredExs.map((ex, idx) => {
+                const routine = routines.find(r => r.id === ex.routineId);
+                return (
+                  <ExCard
+                    key={ex.id}
+                    ex={ex}
+                    index={idx}
+                    routineName={routine?.name}
+                    onEdit={() => setExForm(ex)}
+                    onDelete={() => deleteEx(ex.id)}
+                    onDuplicate={() => duplicateEx(ex)}
+                  />
+                );
+              })
             )}
           </>
         )}
 
-        {/* ── FILLS & GROOVES ── */}
+        {/* ── FILLS ── */}
         {subTab === "fills" && (
           <>
             {filteredFills.length === 0 ? (
               <div style={{ textAlign: "center", padding: "40px 0", color: "var(--outline)" }}>
                 <MI style={{ fontSize: 40, display: "block", marginBottom: 10 }}>music_note</MI>
-                <p style={{ margin: 0, fontSize: 13 }}>Sin fills ni grooves</p>
+                <p style={{ margin: 0, fontSize: 13 }}>Sin fills</p>
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {filteredFills.map(f => (
+                  <FillCard
+                    key={f.id}
+                    fill={f}
+                    onEdit={() => setFillForm(f)}
+                    onDelete={() => deleteFill(f.id)}
+                    onPracticed={() => markFillPracticed(f.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── GROOVES ── */}
+        {subTab === "grooves" && (
+          <>
+            {filteredGrooves.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 0", color: "var(--outline)" }}>
+                <MI style={{ fontSize: 40, display: "block", marginBottom: 10 }}>queue_music</MI>
+                <p style={{ margin: 0, fontSize: 13 }}>Sin grooves</p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {filteredGrooves.map(f => (
                   <FillCard
                     key={f.id}
                     fill={f}
@@ -1145,14 +1120,15 @@ export default function Vault({ data, setData, showToast }) {
 
       {/* Sub-tab contextual add buttons */}
       {subTab === "exercises" && <FAB onClick={() => setExForm({})} label="EJERCICIO" />}
-      {subTab === "fills"     && <FAB onClick={() => setFillForm({})} label="FILL / GROOVE" />}
+      {subTab === "fills"     && <FAB onClick={() => setFillForm({ type: "fill" })} label="FILL" />}
+      {subTab === "grooves"   && <FAB onClick={() => setFillForm({ type: "groove" })} label="GROOVE" />}
       {subTab === "songs"     && <FAB onClick={() => setSongForm({})} label="CANCIÓN" />}
 
       {/* Modals */}
       {exForm !== null && (
         <ExForm
           initial={exForm}
-          categories={cats}
+          routines={routines}
           onSave={saveEx}
           onClose={() => setExForm(null)}
         />
