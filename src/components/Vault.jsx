@@ -777,7 +777,7 @@ export default function Vault({ data, setData, showToast }) {
   ];
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
       {/* Header */}
       <div style={{ padding: "24px 20px 16px", background: "rgba(8,8,12,0.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>

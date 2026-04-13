@@ -440,7 +440,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast }) {
   return (
     <div
       className="no-sb"
-      style={{ height: "100%", overflowY: "auto", background: "var(--bg)", display: "flex", flexDirection: "column" }}
+      style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "var(--bg)", display: "flex", flexDirection: "column" }}
       onClick={e => {
         if (addMenuIdx !== null && !e.target.closest("[data-addmenu]")) setAddMenuIdx(null);
       }}
