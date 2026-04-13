@@ -633,6 +633,29 @@ export default function DrumPracticeApp() {
     }
   };
 
+  /* ── Sync when tab regains focus ── */
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) syncFromCloud();
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  /* ── Polling every 30s while app is open ── */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) syncFromCloud();
+      });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const metro = useMetronome();
 
   /* ─── complete practice session ─── */
