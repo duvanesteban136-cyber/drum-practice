@@ -155,8 +155,20 @@ function ExForm({ initial, categories, onSave, onClose }) {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) return;
-    // Save image as base64 directly — simple and works on all devices
-    onSave({ ...form });
+    let finalForm = { ...form };
+
+    if (form.image && form.image.startsWith("data:")) {
+      setImgUploading(true);
+      const exId = form.id || uid();
+      const url = await uploadExerciseImage(exId, form.image);
+      setImgUploading(false);
+      if (url) {
+        finalForm = { ...finalForm, id: exId, image: url };
+      }
+      // if upload failed, keep base64 as local fallback
+    }
+
+    onSave(finalForm);
     onClose();
   };
 
@@ -297,7 +309,7 @@ function ExForm({ initial, categories, onSave, onClose }) {
             marginTop: 8, opacity: imgUploading ? 0.7 : 1,
           }}
         >
-          {initial?.id ? "GUARDAR CAMBIOS" : "CREAR EJERCICIO"}
+          {imgUploading ? "Subiendo imagen..." : initial?.id ? "GUARDAR CAMBIOS" : "CREAR EJERCICIO"}
         </button>
       </div>
     </Modal>
