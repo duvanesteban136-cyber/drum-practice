@@ -81,6 +81,15 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent long-press text selection throughout the app */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Re-enable selection only for actual text inputs */
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Noise texture overlay */

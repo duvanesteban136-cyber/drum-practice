@@ -778,23 +778,10 @@ export default function Vault({ data, setData, showToast }) {
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
       {/* Header */}
       <div style={{ padding: "24px 20px 16px", background: "rgba(8,8,12,0.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ marginBottom: 16 }}>
           <h1 className="hl" style={{ fontSize: 28, fontWeight: 900, margin: 0, letterSpacing: "-0.03em", background: "linear-gradient(135deg, #a855f7, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
             THE VAULT
           </h1>
-          <button
-            onClick={() => setExForm({})}
-            className="hl"
-            style={{
-              padding: "8px 14px", borderRadius: 12, border: "1px solid rgba(168,85,247,0.35)",
-              background: "rgba(168,85,247,0.1)", color: "#a855f7",
-              fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em",
-              display: "flex", alignItems: "center", gap: 6,
-            }}
-          >
-            <span className="msym" style={{ fontSize: 16 }}>add</span>
-            Nuevo
-          </button>
         </div>
 
         {/* Sub-tabs as pills */}
@@ -940,7 +927,8 @@ export default function Vault({ data, setData, showToast }) {
         )}
       </div>
 
-      {/* Sub-tab add buttons (header has exercises, these handle fills/songs) */}
+      {/* Sub-tab contextual add buttons */}
+      {subTab === "exercises" && <FAB onClick={() => setExForm({})} label="EJERCICIO" />}
       {subTab === "fills"     && <FAB onClick={() => setFillForm({})} label="FILL / GROOVE" />}
       {subTab === "songs"     && <FAB onClick={() => setSongForm({})} label="CANCIÓN" />}
 

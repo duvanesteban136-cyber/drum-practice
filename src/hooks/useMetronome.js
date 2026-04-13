@@ -85,6 +85,7 @@ export function useMetronome() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [beat,      setBeat]      = useState(0);
   const [currentBar,setCurrentBar]= useState(0);
+  const [gapCycle,  setGapCycle]  = useState(0);
   const [isMuted,   setIsMuted]   = useState(false);
 
   /* ── Config ── */
@@ -194,9 +195,9 @@ export function useMetronome() {
 
       /* ── UI update (fire when audio actually plays) ── */
       const uiDelay = Math.max(0, (time - ac.currentTime) * 1000);
-      const sp = pulse, sb = bar, ss = silent;
+      const sp = pulse, sb = bar, ss = silent, sg = gapCycleRef.current;
       setTimeout(() => {
-        if (isRunningRef.current) { setBeat(sp); setCurrentBar(sb); setIsMuted(ss); }
+        if (isRunningRef.current) { setBeat(sp); setCurrentBar(sb); setIsMuted(ss); setGapCycle(sg); }
       }, uiDelay);
 
       nextTimeRef.current += dur;
@@ -258,7 +259,7 @@ export function useMetronome() {
         noiseBufRef.current = buf;
       }
 
-      setIsPlaying(true); setBeat(0); setCurrentBar(0); setIsMuted(false);
+      setIsPlaying(true); setBeat(0); setCurrentBar(0); setGapCycle(0); setIsMuted(false);
 
       /* Kick off scheduler — wait for context to be running first (critical on iOS) */
       const kickOff = () => {
@@ -288,7 +289,7 @@ export function useMetronome() {
     isRunningRef.current = false;
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     try { if (audioElRef.current) { audioElRef.current.pause(); audioElRef.current.currentTime = 0; } } catch(e) {}
-    setIsPlaying(false); setBeat(0); setCurrentBar(0); setIsMuted(false);
+    setIsPlaying(false); setBeat(0); setCurrentBar(0); setGapCycle(0); setIsMuted(false);
     pulseRef.current = 0; barRef.current = 0;
   }, []);
 
@@ -380,7 +381,7 @@ export function useMetronome() {
   }, [cfg.bpm, cfg.trainerEnabled, isPlaying]);
 
   return {
-    isPlaying, beat, currentBar, isMuted,
+    isPlaying, beat, currentBar, gapCycle, isMuted,
     cfg, update, start, stop,
     tapTempo, toggleGridCell, setGridCellSound, getCurrentBpm,
     pulsesPerBar,

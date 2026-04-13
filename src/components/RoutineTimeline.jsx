@@ -453,40 +453,14 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
       }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-          <div>
-            <h1 className="hl" style={{ fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: "-0.03em", background: "linear-gradient(135deg, var(--accent-routine), #0ea5e9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-              THE ROUTINE
-            </h1>
-            <p style={{ margin: "4px 0 12px", color: "var(--outline)", fontSize: 12 }}>
-              {blocks.filter(b => b.type === "exercise").length} ejercicios ·{" "}
-              {Math.ceil(estimatedSeconds / 60)} minutos
-            </p>
-          </div>
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => setAddMenuIdx(addMenuIdx === -1 ? null : -1)}
-              className="hl"
-              style={{
-                padding: "8px 14px", borderRadius: 12, border: "1px solid rgba(6,182,212,0.35)",
-                background: "rgba(6,182,212,0.1)", color: "var(--accent-routine)",
-                fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em",
-                display: "flex", alignItems: "center", gap: 6,
-              }}
-            >
-              <span className="msym" style={{ fontSize: 16 }}>add</span>
-              Agregar
-            </button>
-            {addMenuIdx === -1 && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200 }}>
-                <AddMenu
-                  exercises={exList}
-                  onAdd={block => insertBlock(-1, block)}
-                  onClose={() => setAddMenuIdx(null)}
-                />
-              </div>
-            )}
-          </div>
+        <div>
+          <h1 className="hl" style={{ fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: "-0.03em", background: "linear-gradient(135deg, var(--accent-routine), #0ea5e9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+            THE ROUTINE
+          </h1>
+          <p style={{ margin: "4px 0 12px", color: "var(--outline)", fontSize: 12 }}>
+            {blocks.filter(b => b.type === "exercise").length} ejercicios ·{" "}
+            {Math.ceil(estimatedSeconds / 60)} minutos
+          </p>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {[

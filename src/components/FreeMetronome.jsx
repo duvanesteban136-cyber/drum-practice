@@ -94,7 +94,7 @@ function Sheet({ title, icon, onClose, children }) {
 }
 
 export default function FreeMetronome({ metro }) {
-  const { isPlaying, beat, currentBar, cfg, update, start, stop,
+  const { isPlaying, beat, currentBar, gapCycle, cfg, update, start, stop,
     tapTempo, toggleGridCell, setGridCellSound, getCurrentBpm, pulsesPerBar } = metro;
 
   const [tapFlash, setTapFlash]         = useState(false);
@@ -168,7 +168,7 @@ export default function FreeMetronome({ metro }) {
   const trainerColor = trainerProgress > 0.8 ? "#22c55e" : trainerProgress > 0.4 ? "#84cc16" : T.amber;
 
   const gapTotal   = cfg.gapPlay + cfg.gapSilence;
-  const barInCycle = currentBar % gapTotal;
+  const barInCycle = gapCycle;  // synced directly from scheduler via setGapCycle
   const displayBpm = cfg.trainerEnabled && isPlaying ? currentTrainerBpm : cfg.bpm;
 
   const FEATURE_PILLS = [
