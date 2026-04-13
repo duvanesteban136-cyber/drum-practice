@@ -182,7 +182,8 @@ function NavBar({ tab, setTab }) {
   return (
     <nav style={{
       flexShrink: 0,
-      height: 64,
+      height: "var(--nav-h)",
+      paddingBottom: "env(safe-area-inset-bottom, 0px)",
       background: "rgba(8,8,12,0.92)",
       backdropFilter: "blur(20px)",
       WebkitBackdropFilter: "blur(20px)",
@@ -853,6 +854,7 @@ export default function DrumPracticeApp() {
   return (
     <div style={{
       position: "fixed", inset: 0,
+      paddingTop: "env(safe-area-inset-top, 0px)",
       background: "#08080C",
       display: "flex", flexDirection: "column",
       maxWidth: "min(100vw, 820px)",
