@@ -239,7 +239,7 @@ function NavBar({ tab, setTab }) {
 /* ═══════════════════════════════════════════════
    Progress component (inline)
 ═══════════════════════════════════════════════ */
-function Progress({ data, logs }) {
+function Progress({ data, logs, user, syncLog, onSync }) {
   const streak    = calcStreak(logs);
   const total     = logs.length;
   const totalSecs = logs.reduce((a, l) => a + (l.duration || 0), 0);
@@ -351,6 +351,31 @@ function Progress({ data, logs }) {
           <p style={{ margin: 0, fontSize: 13, color: "#5C5650" }}>Sin sesiones registradas aún</p>
         </div>
       )}
+
+      {/* ── Sync diagnostics panel ── */}
+      <div style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "rgba(240,237,232,0.4)", margin: 0 }}>SYNC DIAGNÓSTICO</p>
+          <button
+            onClick={onSync}
+            style={{ padding: "5px 12px", borderRadius: 8, background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.35)", color: "#22c55e", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+          >
+            SYNC AHORA
+          </button>
+        </div>
+        <p style={{ fontSize: 11, color: "rgba(240,237,232,0.5)", margin: "0 0 8px" }}>
+          Usuario: <span style={{ color: user ? "#22c55e" : "#f43f5e" }}>{user ? user.email : "NO LOGUEADO"}</span>
+        </p>
+        <p style={{ fontSize: 11, color: "rgba(240,237,232,0.5)", margin: "0 0 8px" }}>
+          Ejercicios locales: <span style={{ color: "#ffbf00" }}>{(data.exercises || []).length}</span>
+        </p>
+        {syncLog.length === 0
+          ? <p style={{ fontSize: 10, color: "#5C5650", margin: 0 }}>Sin actividad aún — toca SYNC AHORA</p>
+          : syncLog.map((line, i) => (
+            <p key={i} style={{ fontSize: 10, color: i === syncLog.length - 1 ? "#F0EDE8" : "#5C5650", margin: "2px 0", fontFamily: "monospace" }}>{line}</p>
+          ))
+        }
+      </div>
     </div>
   );
 }
@@ -605,26 +630,44 @@ export default function DrumPracticeApp() {
   const [tab, setTab]           = useState("home");
   const [practiceMode, setPracticeMode] = useState("session");
   const [practiceSession, setPractice]  = useState(null);
+  const [syncLog, setSyncLog]   = useState([]);   // diagnostic log
   const { toast, show: showToast } = useToast();
 
-  /* ── Auth listener + cloud sync on login ── */
+  const addSyncLog = (msg) => setSyncLog(prev => [...prev.slice(-19), `${new Date().toLocaleTimeString()} — ${msg}`]);
 
-  // Use a ref so polling/visibility effects always call the latest version
+  /* ── Auth listener + cloud sync on login ── */
   const syncFromCloudRef = useRef(null);
 
   const syncFromCloud = async () => {
-    const [cloudData, cloudLogs] = await Promise.all([cloudLoadData(), cloudLoadLogs()]);
-    if (cloudData) {
-      setData(cloudData);
-      saveData(cloudData);
-    }
-    if (cloudLogs && cloudLogs.length > 0) {
-      setLogs(cloudLogs);
-      saveLogs(cloudLogs);
+    addSyncLog("sync start");
+    try {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) { addSyncLog("no user — skipped"); return; }
+      addSyncLog(`user: ${u.email}`);
+
+      const [cloudData, cloudLogs] = await Promise.all([cloudLoadData(), cloudLoadLogs()]);
+
+      if (cloudData) {
+        const exCount = (cloudData.exercises || []).length;
+        addSyncLog(`cloud data OK — ${exCount} ejercicios`);
+        setData(cloudData);
+        saveData(cloudData);
+      } else {
+        addSyncLog("cloud data: null (nada guardado aún)");
+      }
+
+      if (cloudLogs && cloudLogs.length > 0) {
+        addSyncLog(`cloud logs: ${cloudLogs.length}`);
+        setLogs(cloudLogs);
+        saveLogs(cloudLogs);
+      } else {
+        addSyncLog("cloud logs: vacío");
+      }
+    } catch (e) {
+      addSyncLog(`ERROR: ${e.message}`);
     }
   };
 
-  // Keep the ref up to date on every render
   syncFromCloudRef.current = syncFromCloud;
 
   useEffect(() => {
@@ -790,7 +833,7 @@ export default function DrumPracticeApp() {
           />
         )}
         {tab === "progress" && (
-          <Progress data={data} logs={logs} />
+          <Progress data={data} logs={logs} user={user} syncLog={syncLog} onSync={() => syncFromCloudRef.current()} />
         )}
       </div>
       </ErrorBoundary>
