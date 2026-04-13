@@ -60,7 +60,7 @@ function Modal({ onClose, children }) {
       style={{
         position: "fixed",
         top: 0, left: 0, right: 0,
-        bottom: "var(--nav-h)",
+        bottom: 0,
         zIndex: 400,
         background: "rgba(0,0,0,0.75)",
         display: "flex", alignItems: "flex-end", justifyContent: "center",
@@ -69,7 +69,8 @@ function Modal({ onClose, children }) {
     >
       <div
         style={{
-          width: "100%", maxWidth: 820, maxHeight: "100%",
+          width: "100%", maxWidth: 820,
+          maxHeight: "calc(100% - env(safe-area-inset-top, 0px))",
           background: "rgba(15,15,20,0.95)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
@@ -77,6 +78,7 @@ function Modal({ onClose, children }) {
           borderBottom: "none",
           borderRadius: "20px 20px 0 0",
           overflowY: "auto", animation: "slideUp 0.22s ease",
+          paddingBottom: "calc(var(--nav-h) + env(safe-area-inset-bottom, 0px))",
         }}
         className="no-sb"
       >

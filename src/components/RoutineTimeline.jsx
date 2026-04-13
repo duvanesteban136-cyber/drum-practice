@@ -205,7 +205,7 @@ function AddMenu({ exercises, fills, songs, onAdd, onClose }) {
 
 /* ─── Routine picker header ─── */
 function RoutinePicker({ routines, activeId, onSelect, onCreate, onRename, onDelete }) {
-  const [renaming, setRenaming] = useState(null); // id being renamed
+  const [renaming, setRenaming] = useState(null);
   const [renameVal, setRenameVal] = useState("");
 
   const startRename = (r) => {
@@ -268,17 +268,28 @@ function RoutinePicker({ routines, activeId, onSelect, onCreate, onRename, onDel
 
 /* ─── main component ─── */
 export default function RoutineTimeline({ data, setData, logs, showToast, onStartRoutine }) {
-  /* ── Migrate legacy routineBlocks → routines[] ── */
-  const initRoutines = () => {
+
+  /* ── Derive routines directly from data — NO internal state for routines ──
+     This ensures that when exercises are added/modified in Vault, they appear here immediately.
+     We only keep UI state (which routine is selected, drag state, add menu) locally. */
+
+  const getRoutines = () => {
+    // If data has routines array with entries, use it
     if (data.routines && data.routines.length > 0) return data.routines;
-    return [{ id: uid(), name: "Mi rutina", blocks: data.routineBlocks || [] }];
+    // Migrate legacy routineBlocks → single routine
+    return [{ id: "default-routine", name: "Mi rutina", blocks: data.routineBlocks || [] }];
   };
 
-  const [routines, setRoutinesState] = useState(initRoutines);
-  const [activeRoutineId, setActiveRoutineId] = useState(() => {
-    if (data.routines && data.routines.length > 0) return data.routines[0].id;
-    return initRoutines()[0].id;
-  });
+  const routines = getRoutines();
+
+  /* ── Active routine ID — persisted in data so it survives re-renders ── */
+  const activeRoutineId = data._activeRoutineId || routines[0]?.id || "default-routine";
+
+  const setActiveRoutineId = (id) => {
+    const nd = { ...data, _activeRoutineId: id };
+    setData(nd);
+    saveData(nd);
+  };
 
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
@@ -287,27 +298,39 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
   const rowRefs = useRef([]);
   const draggingIdxRef = useRef(null);
 
-  const activeRoutine = routines.find(r => r.id === activeRoutineId) || routines[0] || { id: "", name: "Mi rutina", blocks: [] };
+  const activeRoutine = routines.find(r => r.id === activeRoutineId) || routines[0] || { id: "default-routine", name: "Mi rutina", blocks: [] };
   const blocks = activeRoutine?.blocks || [];
 
+  /* ── Save helpers — always write through to data ── */
   const saveRoutines = useCallback((newRoutines) => {
-    setRoutinesState(newRoutines);
     const nd = { ...data, routines: newRoutines, routineBlocks: undefined };
     setData(nd);
     saveData(nd);
   }, [data, setData]);
 
   const saveBlocks = useCallback((nb) => {
-    const newRoutines = routines.map(r => r.id === activeRoutineId ? { ...r, blocks: nb } : r);
-    saveRoutines(newRoutines);
-  }, [routines, activeRoutineId, saveRoutines]);
+    // Find the active routine; if it came from migration (no data.routines), create the routines array now
+    const currentRoutines = (data.routines && data.routines.length > 0)
+      ? data.routines
+      : [{ id: activeRoutine.id, name: activeRoutine.name, blocks: [] }];
+
+    const exists = currentRoutines.some(r => r.id === activeRoutine.id);
+    const newRoutines = exists
+      ? currentRoutines.map(r => r.id === activeRoutine.id ? { ...r, blocks: nb } : r)
+      : [...currentRoutines, { ...activeRoutine, blocks: nb }];
+
+    const nd = { ...data, routines: newRoutines, routineBlocks: undefined };
+    setData(nd);
+    saveData(nd);
+  }, [data, setData, activeRoutine]);
 
   /* ── Routine CRUD ── */
   const createRoutine = () => {
     const r = { id: uid(), name: `Rutina ${routines.length + 1}`, blocks: [] };
     const newRoutines = [...routines, r];
-    setActiveRoutineId(r.id);
-    saveRoutines(newRoutines);
+    const nd = { ...data, routines: newRoutines, routineBlocks: undefined, _activeRoutineId: r.id };
+    setData(nd);
+    saveData(nd);
     showToast && showToast("Rutina creada");
   };
 
@@ -318,8 +341,9 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
   const deleteRoutine = (id) => {
     if (routines.length <= 1) { showToast && showToast("No puedes borrar la única rutina", "info"); return; }
     const newRoutines = routines.filter(r => r.id !== id);
-    setActiveRoutineId(newRoutines[0].id);
-    saveRoutines(newRoutines);
+    const nd = { ...data, routines: newRoutines, routineBlocks: undefined, _activeRoutineId: newRoutines[0].id };
+    setData(nd);
+    saveData(nd);
     showToast && showToast("Rutina eliminada", "info");
   };
 
