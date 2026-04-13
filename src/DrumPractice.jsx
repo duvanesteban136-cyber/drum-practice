@@ -352,29 +352,101 @@ function Progress({ data, logs, user, syncLog, onSync }) {
         </div>
       )}
 
-      {/* ── Sync diagnostics panel ── */}
-      <div style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 16 }}>
+      {/* ── Account / Sync panel ── */}
+      <AccountPanel user={user} onSync={onSync} exerciseCount={(data.exercises || []).length} syncLog={syncLog} />
+    </div>
+  );
+}
+
+/* ── Account panel (login or status) ── */
+function AccountPanel({ user, onSync, exerciseCount, syncLog }) {
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [mode, setMode]         = useState("login");
+
+  const handleLogin = async () => {
+    if (!email || !password) return;
+    setLoading(true); setError(null);
+    const fn = mode === "register"
+      ? supabase.auth.signUp({ email, password })
+      : supabase.auth.signInWithPassword({ email, password });
+    const { error: err } = await fn;
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    // syncFromCloud fires automatically via onAuthStateChange
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  if (user) {
+    return (
+      <div style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 14, padding: 16 }}>
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "rgba(34,197,94,0.6)", margin: "0 0 10px" }}>CUENTA</p>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "rgba(240,237,232,0.4)", margin: 0 }}>SYNC DIAGNÓSTICO</p>
+          <div>
+            <p style={{ fontSize: 12, color: "#22c55e", fontWeight: 600, margin: 0 }}>{user.email}</p>
+            <p style={{ fontSize: 10, color: "rgba(240,237,232,0.4)", margin: "2px 0 0" }}>{exerciseCount} ejercicios locales</p>
+          </div>
           <button
             onClick={onSync}
-            style={{ padding: "5px 12px", borderRadius: 8, background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.35)", color: "#22c55e", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+            style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.35)", color: "#22c55e", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
           >
-            SYNC AHORA
+            SYNC
           </button>
         </div>
-        <p style={{ fontSize: 11, color: "rgba(240,237,232,0.5)", margin: "0 0 8px" }}>
-          Usuario: <span style={{ color: user ? "#22c55e" : "#f43f5e" }}>{user ? user.email : "NO LOGUEADO"}</span>
-        </p>
-        <p style={{ fontSize: 11, color: "rgba(240,237,232,0.5)", margin: "0 0 8px" }}>
-          Ejercicios locales: <span style={{ color: "#ffbf00" }}>{(data.exercises || []).length}</span>
-        </p>
-        {syncLog.length === 0
-          ? <p style={{ fontSize: 10, color: "#5C5650", margin: 0 }}>Sin actividad aún — toca SYNC AHORA</p>
-          : syncLog.map((line, i) => (
-            <p key={i} style={{ fontSize: 10, color: i === syncLog.length - 1 ? "#F0EDE8" : "#5C5650", margin: "2px 0", fontFamily: "monospace" }}>{line}</p>
-          ))
-        }
+        {syncLog.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            {syncLog.slice(-5).map((line, i, arr) => (
+              <p key={i} style={{ fontSize: 10, color: i === arr.length - 1 ? "#F0EDE8" : "#5C5650", margin: "2px 0", fontFamily: "monospace" }}>{line}</p>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={handleLogout}
+          style={{ background: "none", border: "none", color: "rgba(240,237,232,0.3)", fontSize: 11, cursor: "pointer", padding: 0 }}
+        >
+          Cerrar sesión
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "rgba(255,191,0,0.05)", border: "1px solid rgba(255,191,0,0.2)", borderRadius: 14, padding: 16 }}>
+      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "rgba(255,191,0,0.6)", margin: "0 0 4px" }}>CUENTA</p>
+      <p style={{ fontSize: 12, color: "rgba(240,237,232,0.5)", margin: "0 0 14px" }}>
+        Inicia sesión para sincronizar entre dispositivos
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <input
+          type="email" placeholder="tu@email.com" value={email}
+          onChange={e => setEmail(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleLogin()}
+          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "#F0EDE8", fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" }}
+        />
+        <input
+          type="password" placeholder="Contraseña" value={password}
+          onChange={e => setPassword(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleLogin()}
+          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "#F0EDE8", fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" }}
+        />
+        {error && <p style={{ color: "#f43f5e", fontSize: 11, margin: 0 }}>{error}</p>}
+        <button
+          onClick={handleLogin} disabled={loading}
+          style={{ padding: "12px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#ffbf00,#ff8c00)", color: "#08080C", fontSize: 13, fontWeight: 800, cursor: "pointer", opacity: loading ? 0.6 : 1 }}
+        >
+          {loading ? "..." : mode === "login" ? "ENTRAR" : "CREAR CUENTA"}
+        </button>
+        <button
+          onClick={() => { setMode(m => m === "login" ? "register" : "login"); setError(null); }}
+          style={{ background: "none", border: "none", color: "rgba(240,237,232,0.35)", fontSize: 11, cursor: "pointer", padding: 4 }}
+        >
+          {mode === "login" ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Entra"}
+        </button>
       </div>
     </div>
   );
