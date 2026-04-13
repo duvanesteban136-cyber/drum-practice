@@ -500,7 +500,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast }) {
       </div>
 
       {/* Timeline body */}
-      <div style={{ padding: "0 16px 120px", flex: 1 }}>
+      <div style={{ padding: "0 16px 0", paddingBottom: "calc(var(--nav-h) + 16px)", flex: 1 }}>
         {/* Top: add warmup */}
         {!hasWarmup && (
           <div style={{ paddingTop: 16, paddingBottom: 8 }}>
@@ -634,7 +634,9 @@ export default function RoutineTimeline({ data, setData, logs, showToast }) {
           background: "rgba(8,8,12,0.9)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          borderTop: "1px solid var(--glass-border)", padding: "12px 20px",
+          borderTop: "1px solid var(--glass-border)",
+          padding: "12px 20px",
+          paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
         }}>
           <button
             className="hl"

@@ -73,6 +73,7 @@ function Modal({ onClose, children }) {
           borderBottom: "none",
           borderRadius: "20px 20px 0 0",
           overflowY: "auto", animation: "slideUp 0.22s ease",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
         className="no-sb"
       >
@@ -608,7 +609,7 @@ function FAB({ onClick, label }) {
       onClick={onClick}
       className="hl"
       style={{
-        position: "fixed", bottom: 128, right: "max(16px, calc(50vw - 224px))",
+      position: "fixed", bottom: "calc(var(--nav-h) + 8px)", right: "max(16px, calc(50vw - 224px))",
         zIndex: 100, padding: "14px 20px", borderRadius: 20,
         background: "linear-gradient(135deg, var(--accent-practice), #ff8c00)",
         color: "#402d00",
@@ -800,7 +801,7 @@ export default function Vault({ data, setData, showToast }) {
       </div>
 
       {/* Body */}
-      <div className="no-sb" style={{ flex: 1, overflowY: "auto", padding: "16px 16px 140px" }}>
+      <div className="no-sb" style={{ flex: 1, overflowY: "auto", padding: "16px 16px 0", paddingBottom: "calc(var(--nav-h) + 16px)" }}>
 
         {/* ── EXERCISES ── */}
         {subTab === "exercises" && (

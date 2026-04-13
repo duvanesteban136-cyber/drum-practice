@@ -182,7 +182,8 @@ function NavBar({ tab, setTab }) {
   return (
     <nav style={{
       flexShrink: 0,
-      height: 64,
+      height: "var(--nav-h)",
+      paddingBottom: "env(safe-area-inset-bottom, 0px)",
       background: "rgba(8,8,12,0.92)",
       backdropFilter: "blur(20px)",
       WebkitBackdropFilter: "blur(20px)",
@@ -258,7 +259,7 @@ function Progress({ data, logs }) {
   const maxSecs = Math.max(...last7.map(d => d.secs), 1);
 
   return (
-    <div style={{ padding: "32px 20px 32px", display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ padding: "32px 20px 0", paddingBottom: "calc(var(--nav-h) + 24px)", display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* ── Header ── */}
       <h1 className="hl" style={{
@@ -375,7 +376,7 @@ function Home({ data, logs, onGoRoutine, onGoVault, onGoPractice, metro }) {
   const dayNames = ["L", "M", "X", "J", "V", "S", "D"];
 
   return (
-    <div style={{ padding: "32px 20px 32px", display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ padding: "32px 20px 0", paddingBottom: "calc(var(--nav-h) + 24px)", display: "flex", flexDirection: "column", gap: 20 }}>
 
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -733,7 +734,7 @@ export default function DrumPracticeApp() {
       position: "fixed", inset: 0,
       background: "#08080C",
       display: "flex", flexDirection: "column",
-      maxWidth: window.innerWidth >= 768 ? 600 : 480,
+      maxWidth: "min(100vw, 820px)",
       left: "50%", transform: "translateX(-50%)", width: "100%",
       overflow: "hidden",
     }}>

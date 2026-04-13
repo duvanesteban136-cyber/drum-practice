@@ -1,5 +1,8 @@
 /* ─── OBSIDIAN AURORA — Design tokens ─── */
 :root {
+  /* Nav height + iOS safe area bottom */
+  --nav-h: calc(64px + env(safe-area-inset-bottom, 0px));
+
   /* Backgrounds */
   --bg:       #08080C;
   --surface1: #0F0F14;
@@ -262,7 +265,21 @@ button:active { transform: scale(0.96); }
 .stagger > *:nth-child(7) { animation-delay: 0.30s; }
 .stagger > *:nth-child(8) { animation-delay: 0.35s; }
 
-/* ─── iPad optimizations ─── */
+/* ─── iPad optimizations (768px+) ─── */
 @media (min-width: 768px) {
   .nav-item-label { font-size: 11px !important; }
+
+  /* Wider max-width for modal sheets on iPad/Mac */
+  /* (handled inline via JS for the main shell) */
+
+  /* Slightly more padding in card layouts */
+  .glass { border-radius: 20px; }
+}
+
+/* ─── Mac / large screen (1024px+) ─── */
+@media (min-width: 1024px) {
+  :root {
+    /* On Mac the navbar sits normally, no safe area inset */
+    --nav-h: 64px;
+  }
 }
