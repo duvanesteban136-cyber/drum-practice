@@ -182,6 +182,7 @@ function NavBar({ tab, setTab }) {
   return (
     <nav style={{
       flexShrink: 0,
+      minHeight: 64,
       height: "var(--nav-h)",
       paddingBottom: "env(safe-area-inset-bottom, 0px)",
       background: "rgba(8,8,12,0.92)",
@@ -189,6 +190,8 @@ function NavBar({ tab, setTab }) {
       WebkitBackdropFilter: "blur(20px)",
       borderTop: "1px solid rgba(255,255,255,0.04)",
       display: "flex",
+      alignItems: "flex-start",
+      paddingTop: 0,
       zIndex: 150,
     }}>
       {NAV.map(n => {
@@ -854,7 +857,6 @@ export default function DrumPracticeApp() {
   return (
     <div style={{
       position: "fixed", inset: 0,
-      paddingTop: "env(safe-area-inset-top, 0px)",
       background: "#08080C",
       display: "flex", flexDirection: "column",
       maxWidth: "min(100vw, 820px)",
@@ -877,6 +879,7 @@ export default function DrumPracticeApp() {
         position: "relative", zIndex: 1,
         WebkitOverflowScrolling: "touch",
         display: "flex", flexDirection: "column",
+        paddingTop: "env(safe-area-inset-top, 0px)",
       }}>
         {tab === "home" && (
           <Home
