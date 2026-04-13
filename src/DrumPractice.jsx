@@ -265,7 +265,7 @@ function Progress({ data, logs, user, syncLog, onSync }) {
   const maxSecs = Math.max(...last7.map(d => d.secs), 1);
 
   return (
-    <div style={{ padding: "32px 20px 0", paddingBottom: "calc(var(--nav-h) + 24px)", display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ padding: "32px 20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* ── Header ── */}
       <h1 className="hl" style={{
@@ -479,7 +479,7 @@ function Home({ data, logs, onGoRoutine, onGoVault, onGoPractice, metro }) {
   const dayNames = ["L", "M", "X", "J", "V", "S", "D"];
 
   return (
-    <div style={{ padding: "32px 20px 0", paddingBottom: "calc(var(--nav-h) + 24px)", display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ padding: "32px 20px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
 
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -864,7 +864,6 @@ export default function DrumPracticeApp() {
       display: "flex", flexDirection: "column",
       maxWidth: "min(100vw, 820px)",
       left: "50%", transform: "translateX(-50%)", width: "100%",
-      overflow: "hidden",
     }}>
       {/* Aurora background — changes per tab */}
       <Aurora color1={aurora.color1} color2={aurora.color2} />
@@ -883,6 +882,7 @@ export default function DrumPracticeApp() {
         WebkitOverflowScrolling: "touch",
         display: "flex", flexDirection: "column",
         paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "var(--nav-h)",
       }}>
         {tab === "home" && (
           <Home

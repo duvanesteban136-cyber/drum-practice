@@ -822,7 +822,7 @@ export default function Vault({ data, setData, showToast }) {
       </div>
 
       {/* Body */}
-      <div className="no-sb" style={{ flex: 1, overflowY: "auto", padding: "16px 16px 0", paddingBottom: "calc(var(--nav-h) + 16px)" }}>
+      <div className="no-sb" style={{ flex: 1, overflowY: "auto", padding: "16px 16px 24px" }}>
 
         {/* ── EXERCISES ── */}
         {subTab === "exercises" && (
