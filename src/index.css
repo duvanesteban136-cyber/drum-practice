@@ -1,7 +1,7 @@
 /* ─── OBSIDIAN AURORA — Design tokens ─── */
 :root {
-  /* Nav height — 64px base + safe-area-inset-bottom for iPhone home bar */
-  --nav-h: calc(64px + env(safe-area-inset-bottom, 0px));
+  /* Nav height — fixed 64px. Content padding uses safe-area separately. */
+  --nav-h: 64px;
 
   /* Backgrounds */
   --bg:       #08080C;

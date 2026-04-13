@@ -500,7 +500,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast }) {
       </div>
 
       {/* Timeline body */}
-      <div style={{ padding: "0 16px 24px", flex: 1 }}>
+      <div style={{ padding: "0 16px 0", paddingBottom: "calc(var(--nav-h) + 16px)", flex: 1 }}>
         {/* Top: add warmup */}
         {!hasWarmup && (
           <div style={{ paddingTop: 16, paddingBottom: 8 }}>
