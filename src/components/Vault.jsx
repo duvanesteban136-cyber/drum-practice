@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-import { saveData } from "../lib/storage.js";
 import { uid, fmtDur, clamp, getToday, SOUNDS, BEAT_LEVELS, DEFAULT_CATEGORIES, SUBDIVISIONS } from "../lib/constants.js";
 import { uploadExerciseImage, uploadFillMedia, uploadSongMedia } from "../lib/supabase.js";
 import SongPlayer from "./SongPlayer.jsx";
@@ -877,7 +876,7 @@ export default function Vault({ data, setData, showToast }) {
   const songs = data.songs || [];
   const routines = data.routines || [];
 
-  const save = (nd) => { setData(nd); saveData(nd); };
+  const save = (nd) => { setData(nd); };
 
   /* ─── exercises ─── */
   const filteredExs = exercises.filter(ex =>

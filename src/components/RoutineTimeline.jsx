@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback } from "react";
-import { saveData } from "../lib/storage.js";
 import { uid, fmtDur, clamp } from "../lib/constants.js";
 
 /* ─── helpers ─── */
@@ -286,9 +285,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
   const activeRoutineId = data._activeRoutineId || routines[0]?.id || "default-routine";
 
   const setActiveRoutineId = (id) => {
-    const nd = { ...data, _activeRoutineId: id };
-    setData(nd);
-    saveData(nd);
+    setData({ ...data, _activeRoutineId: id });
   };
 
   const [dragIdx, setDragIdx] = useState(null);
@@ -303,9 +300,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
 
   /* ── Save helpers — always write through to data ── */
   const saveRoutines = useCallback((newRoutines) => {
-    const nd = { ...data, routines: newRoutines, routineBlocks: undefined };
-    setData(nd);
-    saveData(nd);
+    setData({ ...data, routines: newRoutines, routineBlocks: undefined });
   }, [data, setData]);
 
   const saveBlocks = useCallback((nb) => {
@@ -319,18 +314,14 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
       ? currentRoutines.map(r => r.id === activeRoutine.id ? { ...r, blocks: nb } : r)
       : [...currentRoutines, { ...activeRoutine, blocks: nb }];
 
-    const nd = { ...data, routines: newRoutines, routineBlocks: undefined };
-    setData(nd);
-    saveData(nd);
+    setData({ ...data, routines: newRoutines, routineBlocks: undefined });
   }, [data, setData, activeRoutine]);
 
   /* ── Routine CRUD ── */
   const createRoutine = () => {
     const r = { id: uid(), name: `Rutina ${routines.length + 1}`, blocks: [] };
     const newRoutines = [...routines, r];
-    const nd = { ...data, routines: newRoutines, routineBlocks: undefined, _activeRoutineId: r.id };
-    setData(nd);
-    saveData(nd);
+    setData({ ...data, routines: newRoutines, routineBlocks: undefined, _activeRoutineId: r.id });
     showToast && showToast("Rutina creada");
   };
 
@@ -341,9 +332,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
   const deleteRoutine = (id) => {
     if (routines.length <= 1) { showToast && showToast("No puedes borrar la única rutina", "info"); return; }
     const newRoutines = routines.filter(r => r.id !== id);
-    const nd = { ...data, routines: newRoutines, routineBlocks: undefined, _activeRoutineId: newRoutines[0].id };
-    setData(nd);
-    saveData(nd);
+    setData({ ...data, routines: newRoutines, routineBlocks: undefined, _activeRoutineId: newRoutines[0].id });
     showToast && showToast("Rutina eliminada", "info");
   };
 
@@ -393,9 +382,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast, onStar
       bpmStart:ex.velocityMode === "ramp"  ? clamp((ex.bpmStart|| 60)  + delta, 20, 300) : ex.bpmStart,
       bpmEnd:  ex.velocityMode === "ramp"  ? clamp((ex.bpmEnd  || 100) + delta, 20, 300) : ex.bpmEnd,
     }));
-    const nd = { ...data, exercises: exs };
-    setData(nd);
-    saveData(nd);
+    setData({ ...data, exercises: exs });
     showToast && showToast(`BPM global ${delta > 0 ? "+" : ""}${delta} aplicado`, "success");
   };
 
