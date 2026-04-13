@@ -145,7 +145,7 @@ function ExForm({ initial, categories, onSave, onClose }) {
   const handleImageFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 200 * 1024) { setImgWarn(true); return; }
+    if (file.size > 2 * 1024 * 1024) { setImgWarn(true); return; }
     setImgWarn(false);
     // Read as base64 for preview — upload to Storage on submit
     const reader = new FileReader();
@@ -155,22 +155,8 @@ function ExForm({ initial, categories, onSave, onClose }) {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) return;
-    let finalForm = { ...form };
-
-    // If image is a fresh base64 blob, upload it to Supabase Storage
-    if (form.image && form.image.startsWith("data:")) {
-      setImgUploading(true);
-      const exId = form.id || uid();
-      const url = await uploadExerciseImage(exId, form.image);
-      setImgUploading(false);
-      if (url) {
-        // Replace base64 with public URL — syncs across all devices
-        finalForm = { ...finalForm, id: exId, image: url };
-      }
-      // If upload failed, keep base64 as fallback (works locally)
-    }
-
-    onSave(finalForm);
+    // Save image as base64 directly — simple and works on all devices
+    onSave({ ...form });
     onClose();
   };
 
@@ -293,7 +279,7 @@ function ExForm({ initial, categories, onSave, onClose }) {
               <button onClick={() => set("image", null)} style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: 11 }}>Quitar</button>
             )}
           </div>
-          {imgWarn && <p style={{ color: "var(--red)", fontSize: 11, margin: "6px 0 0" }}>Imagen muy grande (máx 200KB)</p>}
+          {imgWarn && <p style={{ color: "var(--red)", fontSize: 11, margin: "6px 0 0" }}>Imagen muy grande (máx 2MB)</p>}
         </Field>
 
         <Field label="NOTAS">
@@ -311,7 +297,7 @@ function ExForm({ initial, categories, onSave, onClose }) {
             marginTop: 8, opacity: imgUploading ? 0.7 : 1,
           }}
         >
-          {imgUploading ? "Subiendo imagen..." : initial?.id ? "GUARDAR CAMBIOS" : "CREAR EJERCICIO"}
+          {initial?.id ? "GUARDAR CAMBIOS" : "CREAR EJERCICIO"}
         </button>
       </div>
     </Modal>

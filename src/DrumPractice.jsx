@@ -900,6 +900,7 @@ export default function DrumPracticeApp() {
             setData={setDataAndSync}
             logs={logs}
             showToast={showToast}
+            onStartRoutine={() => setPractice("routine")}
           />
         )}
         {tab === "vault" && (

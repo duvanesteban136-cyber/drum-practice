@@ -226,7 +226,7 @@ function AddMenu({ exercises, onAdd, onClose }) {
 }
 
 /* ─── main component ─── */
-export default function RoutineTimeline({ data, setData, logs, showToast }) {
+export default function RoutineTimeline({ data, setData, logs, showToast, onStartRoutine }) {
   const [blocks, setBlocksState] = useState(() => data.routineBlocks || []);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
@@ -640,6 +640,7 @@ export default function RoutineTimeline({ data, setData, logs, showToast }) {
         }}>
           <button
             className="hl"
+            onClick={onStartRoutine}
             style={{
               width: "100%", padding: "16px", borderRadius: 14,
               background: "linear-gradient(135deg, #06b6d4, #0ea5e9)",
