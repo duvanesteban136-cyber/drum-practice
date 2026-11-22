@@ -39,7 +39,11 @@ export function weekSummary(state, todayKey, goalMin) {
 
 export function streak(state, todayKey, thresholdMin) {
   const sec = secByDay(state)
-  const ok = (k) => (sec.get(k) || 0) / 60 >= thresholdMin
+  const threshold = Math.max(Number(thresholdMin) || 0, 0)
+  const ok = (k) => {
+    const minutes = round1((sec.get(k) || 0) / 60) // same value the UI shows
+    return minutes > 0 && minutes >= threshold
+  }
   // Current: an unpracticed today does not break the run.
   let cursor = ok(todayKey) ? todayKey : addDays(todayKey, -1)
   let current = 0

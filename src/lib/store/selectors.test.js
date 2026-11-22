@@ -70,6 +70,18 @@ describe('streak', () => {
   })
 })
 
+describe('streak guards', () => {
+  it('threshold 0 terminates and counts only days with practice', () => {
+    const logs = [logOn(TODAY, 1), logOn(addDays(TODAY, -1), 1)]
+    expect(streak(stateOf({ logs }), TODAY, 0)).toEqual({ current: 2, best: 2 })
+    expect(streak(stateOf(), TODAY, 0)).toEqual({ current: 0, best: 0 })
+    expect(streak(stateOf(), TODAY, undefined)).toEqual({ current: 0, best: 0 })
+  })
+  it('4.96 min counts against threshold 5 (matches displayed rounding)', () => {
+    expect(streak(stateOf({ logs: [logOn(TODAY, 4.96)] }), TODAY, 5).current).toBe(1)
+  })
+})
+
 describe('heatmap', () => {
   it('is 84 Monday-aligned entries, today filled, future null', () => {
     const h = heatmap(stateOf({ logs: [logOn(TODAY, 12)] }), TODAY)
