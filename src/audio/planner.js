@@ -26,7 +26,7 @@ const sum = (a) => a.reduce((s, x) => s + x, 0)
  * @property {number} swing  50–75 %, only with 2 or 4 pulses per beat
  * @property {number} countInBars
  * @property {{enabled: boolean, introBars: number, playBars: number, muteBars: number, mode: 'full'|'one'|'offbeat', hideVisual: boolean}} gap
- * @property {{enabled: boolean, percent: number, protectOne: boolean}} randomMute
+ * @property {{enabled: boolean, percent: number, protectOne: boolean}} randomMute  mutes whole beats (percent % chance each); protectOne spares beat 1
  * @property {{enabled: boolean, n: number, sound: string, volume: number}} poly  n hits spread evenly over each bar
  * @property {{enabled: boolean, type: 'ramp'|'steps', targetBpm: number, rampSeconds: number, stepBars: number, stepBpm: number, onReach: 'hold'|'stop'|'restart'}} trainer
  *
@@ -76,6 +76,11 @@ export function defaultMetroConfig() {
 }
 
 /**
+ * State before the first bar of a run. `trainerElapsed` measures the trainer's progress with the
+ * count-in excluded, and its unit depends on `trainer.type`: played **seconds** for 'ramp' (the
+ * ramp is linear in time) and played **bars** for 'steps' (a step lands every stepBars bars).
+ * It is frozen while `trainerPaused` and back to 0 on restart; reset the trainer fields when the
+ * trainer settings change mid-play, since a value in one unit means nothing in the other.
  * @param {MetroConfig} config
  * @returns {PlayState}
  */
@@ -115,7 +120,7 @@ function settings(config) {
     },
     subVolume: clamp(finite(c.volume?.subdivision, 0.6), 0, 1),
     gap: { ...c.gap, enabled: !!c.gap?.enabled },
-    randomMute: { enabled: !!rm.enabled && chance > 0, chance, protectOne: rm.protectOne !== false },
+    randomMute: { enabled: !!rm.enabled, chance, protectOne: rm.protectOne !== false },
     poly: {
       enabled: !!poly.enabled,
       n: whole(poly.n, 3, 1),
@@ -155,6 +160,13 @@ function trainerBpmAt(tr, elapsed) {
     return climbed >= Math.abs(span) ? tr.target : tr.start + Math.sign(span) * climbed
   }
   return elapsed >= tr.rampSeconds ? tr.target : tr.start + (span * elapsed) / tr.rampSeconds
+}
+
+// The climb is over, so onReach 'stop'/'restart' may act: a ramp once the target has sounded,
+// steps once a full step (stepBars bars) has been played at the target.
+function trainerDone(tr, elapsed, reached) {
+  if (!tr.steps) return reached
+  return elapsed >= tr.stepBars && trainerBpmAt(tr, elapsed - tr.stepBars) === tr.target
 }
 
 function countInBar(s, state, bpm) {
@@ -211,17 +223,18 @@ function tempoMap(s, bpmAt, elapsed) {
 
 // Grid pulses: level gain (scaled by volume.subdivision off the beat), gap mute, random mute.
 function gridEvents(s, pulseAt, muted, rng) {
-  const ppb = s.structure.pulsesPerBeat
+  const { beatsPerBar, pulsesPerBeat: ppb } = s.structure
   const grid = Array.isArray(s.grid) && s.grid.length === pulseAt.length ? s.grid : defaultGrid(s.meter, s.feel, s.subdivision)
+  // Random mute decides per beat: one draw per beat, in order; a protected beat 1 ignores its draw.
   const rm = s.randomMute
+  const beatMuted = Array.from({ length: beatsPerBar }, (_, b) => rm.enabled && rng() < rm.chance && !(b === 0 && rm.protectOne))
   const events = []
   const silent = []
   pulseAt.forEach((at, i) => {
     const cell = grid[i] ?? {}
     const level = LEVELS.includes(cell.level) ? cell.level : 'normal'
     const gain = LEVEL_GAIN[level] * (i % ppb === 0 ? 1 : s.subVolume)
-    let sounds = gain > 0 && (!muted || (s.gap.mode === 'one' && i === 0))
-    if (sounds && rm.enabled && !(i === 0 && rm.protectOne)) sounds = rng() >= rm.chance
+    const sounds = gain > 0 && (!muted || (s.gap.mode === 'one' && i === 0)) && !beatMuted[Math.floor(i / ppb)]
     silent.push(!sounds)
     if (sounds) events.push({ at, kind: 'main', level, sound: cell.sound ?? s.sounds[level], gain })
   })
@@ -248,8 +261,10 @@ function polyHits(s, duration) {
 
 /**
  * Plans the next bar. Times are seconds from the bar start; master volume is left to the engine.
- * `rng` is called once per main pulse that would otherwise sound (in order, skipping a protected
- * pulse 0), and only when random mute is on.
+ * While random mute is on, `rng` is called exactly once per beat of every played bar, in beat
+ * order (never during the count-in); it never touches poly or the gap's offbeat clicks.
+ * onReach 'stop'/'restart' act at the bar line after the climb is over: for a ramp the bar after
+ * the target has sounded, for steps the bar after a full step at the target.
  * @param {MetroConfig} config
  * @param {PlayState} state
  * @param {() => number} [rng]
@@ -261,11 +276,11 @@ export function planBar(config, state, rng = Math.random) {
   const paused = !!state.trainerPaused
   const live = tr.enabled && !paused // the trainer advances during this bar
 
-  if (live && state.reached && tr.onReach === 'stop') return stoppedBar(s, state)
-
   let elapsed = Math.max(0, finite(state.trainerElapsed, 0))
   let reached = !!state.reached
-  if (live && reached && tr.onReach === 'restart') {
+  const done = live && trainerDone(tr, elapsed, reached)
+  if (done && tr.onReach === 'stop') return stoppedBar(s, state)
+  if (done && tr.onReach === 'restart') {
     elapsed = 0
     reached = false
   }
@@ -283,7 +298,7 @@ export function planBar(config, state, rng = Math.random) {
   else {
     const doneElapsed = elapsed + (tr.steps ? 1 : duration)
     const hit = reached || beatBpm.includes(tr.target)
-    trainer = hit && tr.onReach === 'restart'
+    trainer = tr.onReach === 'restart' && trainerDone(tr, doneElapsed, hit)
       ? { trainerBpm: tr.start, trainerElapsed: 0, reached: false }
       : { trainerBpm: trainerBpmAt(tr, doneElapsed), trainerElapsed: doneElapsed, reached: hit }
   }

@@ -266,7 +266,7 @@ describe('planBar: gap', () => {
   })
 
   it('offbeat with quarter notes clicks halfway through every beat at normal level (never fully silent)', () => {
-    const c = gapCfg('offbeat', { sounds: { accent: 'hat', normal: 'rim', soft: 'wood' }, volume: { subdivision: 0 } })
+    const c = gapCfg('offbeat', { sounds: { accent: 'hat', normal: 'rim', soft: 'wood' } })
     const bars = run(c, 6)
     for (const muted of [bars[4], bars[5]]) {
       expect(muted.gap.section).toBe('mute')
@@ -278,6 +278,15 @@ describe('planBar: gap', () => {
   it('offbeat is time-based: with triplets the click is halfway through the beat, not on the triplet grid', () => {
     const muted = run(gapCfg('offbeat', { bpm: 60, subdivision: 3 }), 5)[4]
     expectCloseList(muted.events.map((e) => e.at), [0.5, 1.5, 2.5, 3.5])
+  })
+
+  it('offbeat clicks ignore volume.subdivision: they are the only sound of a muted bar', () => {
+    const c = gapCfg('offbeat', { subdivision: 2, volume: { subdivision: 0 } })
+    const bars = run(c, 5)
+    // sounding bar: the grid's in-between pulses vanish at subdivision volume 0
+    expect(mains(bars[1]).map((e) => [e.at, e.gain])).toEqual([[0, 1], [0.5, 0.75], [1, 0.75], [1.5, 0.75]])
+    // muted bar: the gap's offbeat clicks keep the normal gain
+    expect(mains(bars[4]).map((e) => [e.at, e.gain])).toEqual([[0.25, 0.75], [0.75, 0.75], [1.25, 0.75], [1.75, 0.75]])
   })
 
   it('offbeat follows eighth-note swing: the click lands on the swung "and"', () => {
@@ -314,33 +323,50 @@ describe('planBar: random mute', () => {
   const rmCfg = (patch = {}) =>
     config({ bpm: 120, subdivision: 2, randomMute: { enabled: true, percent: 25, protectOne: true }, ...patch })
 
-  it('rng 0 mutes every pulse except pulse 0 when protectOne; poly hits are not affected', () => {
+  it('rng 0 mutes every beat except beat 1 when protectOne, all pulses of each muted beat; poly is not affected', () => {
     const c = rmCfg({ poly: { enabled: true, n: 3 } })
     const bar = planBar(c, initialPlayState(c), () => 0)
-    expect(mains(bar)).toEqual([{ at: 0, kind: 'main', level: 'accent', sound: 'click', gain: 1 }])
-    expect(bar.visual.silent).toEqual([false, true, true, true, true, true, true, true])
+    expect(mains(bar)).toEqual([
+      { at: 0, kind: 'main', level: 'accent', sound: 'click', gain: 1 },
+      { at: 0.25, kind: 'main', level: 'soft', sound: 'click', gain: 0.24 },
+    ])
+    expect(bar.visual.silent).toEqual([false, false, true, true, true, true, true, true])
     expectCloseList(polys(bar).map((e) => e.at), [0, 2 / 3, 4 / 3])
   })
 
-  it('without protectOne pulse 0 can be muted too', () => {
+  it('without protectOne beat 1 can be muted too', () => {
     const c = rmCfg({ randomMute: { enabled: true, percent: 25, protectOne: false } })
     const bar = planBar(c, initialPlayState(c), () => 0)
     expect(bar.events).toEqual([])
     expect(bar.visual.silent.every(Boolean)).toBe(true)
   })
 
-  it('mutes when rng() < percent / 100', () => {
+  it('mutes a beat when rng() < percent / 100', () => {
     const c = rmCfg()
-    expect(mains(planBar(c, initialPlayState(c), () => 0.2499))).toHaveLength(1)
+    expect(mains(planBar(c, initialPlayState(c), () => 0.2499))).toHaveLength(2)
     expect(mains(planBar(c, initialPlayState(c), () => 0.25))).toHaveLength(8)
   })
 
-  it('decides per main pulse, in order', () => {
+  it('draws rng() once per beat, in beat order; a protected beat 1 ignores its draw', () => {
     const c = rmCfg()
-    const values = [0.24, 0.25, 0.9, 0.1, 0.5, 0.249, 0.3] // pulses 1..7; pulse 0 is protected
-    let i = 0
-    const bar = planBar(c, initialPlayState(c), () => values[i++])
-    expect(bar.visual.silent).toEqual([false, true, false, false, true, false, true, false])
+    const draws = [0, 0.24, 0.25, 0.1] // beat 1 (protected), beat 2 muted, beat 3 sounds, beat 4 muted
+    const rng = vi.fn(() => draws[rng.mock.calls.length - 1])
+    const bar = planBar(c, initialPlayState(c), rng)
+    expect(rng).toHaveBeenCalledTimes(4)
+    expect(bar.visual.silent).toEqual([false, false, true, true, false, false, true, true])
+  })
+
+  it('never silences the offbeat clicks of a muted gap bar', () => {
+    const c = rmCfg({
+      subdivision: 1,
+      randomMute: { enabled: true, percent: 100, protectOne: false },
+      gap: { enabled: true, introBars: 0, playBars: 1, muteBars: 1, mode: 'offbeat' },
+    })
+    const rng = vi.fn(() => 0)
+    const [sounding, muted] = run(c, 2, { rng })
+    expect(sounding.events).toEqual([])
+    expect(muted.events.map((e) => e.at)).toEqual([0.25, 0.75, 1.25, 1.75])
+    expect(rng).toHaveBeenCalledTimes(8) // one draw per beat in every played bar, muted ones included
   })
 
   it('uses only the injected rng, and only when random mute is on', () => {
@@ -497,6 +523,9 @@ describe('planBar: trainer steps', () => {
       expect(new Set(b.visual.bpm).size).toBe(1)
       expect(b.duration).toBeCloseTo(240 / barBpm(b), 12)
     })
+    // reached flips as soon as the target sounds
+    expect(played[7].nextState.reached).toBe(false)
+    expect(played[8].nextState.reached).toBe(true)
   })
 
   it('never passes a target that is not a whole number of steps away', () => {
@@ -509,18 +538,33 @@ describe('planBar: trainer steps', () => {
     expect(played.map(barBpm)).toEqual([120, 120, 115, 115, 110, 110, 110])
   })
 
-  it('stop: the bar after the first bar at the target returns stop', () => {
-    const bars = run(steps({ onReach: 'stop' }), 11)
-    expect(bars[8].nextState.reached).toBe(false)
-    expect(barBpm(bars[9])).toBe(104)
-    expect(bars[9].nextState.reached).toBe(true)
-    expect(bars[10].stop).toBe(true)
-    expect(bars[10].events).toEqual([])
+  it('stop: the full final step plays at the target (104 x4), then the next bar returns stop', () => {
+    const bars = run(steps({ onReach: 'stop' }), 15)
+    const played = bars.slice(1, 13)
+    expect(played.map(barBpm)).toEqual([100, 100, 100, 100, 102, 102, 102, 102, 104, 104, 104, 104])
+    played.forEach((b) => {
+      expect(b.stop).toBe(false)
+      expect(mains(b).length).toBeGreaterThan(0)
+    })
+    expect(bars[9].nextState.reached).toBe(true) // the target has sounded…
+    expect(bars[13].stop).toBe(true) // …but stop waits for the end of its step
+    expect(bars[13].events).toEqual([])
+    expect(bars[14].stop).toBe(true)
   })
 
-  it('restart: after the bar at the target the stairs start over from config.bpm', () => {
-    const played = run(steps({ onReach: 'restart' }), 14).slice(1)
-    expect(played.map(barBpm)).toEqual([100, 100, 100, 100, 102, 102, 102, 102, 104, 100, 100, 100, 100])
+  it('stop: a capped final step also plays in full', () => {
+    const bars = run(steps({ targetBpm: 105, onReach: 'stop' }), 18)
+    expect(bars.slice(1, 17).map(barBpm)).toEqual([100, 100, 100, 100, 102, 102, 102, 102, 104, 104, 104, 104, 105, 105, 105, 105])
+    expect(bars[16].stop).toBe(false)
+    expect(bars[17].stop).toBe(true)
+  })
+
+  it('restart: after the full step at the target the stairs start over from config.bpm', () => {
+    const played = run(steps({ onReach: 'restart' }), 21).slice(1)
+    expect(played.map(barBpm)).toEqual([
+      100, 100, 100, 100, 102, 102, 102, 102, 104, 104, 104, 104, 100, 100, 100, 100, 102, 102, 102, 102,
+    ])
+    expect(played[11].nextState).toMatchObject({ trainerBpm: 100, trainerElapsed: 0, reached: false })
   })
 
   it('paused: the stair counter does not move; resuming continues where it was', () => {
